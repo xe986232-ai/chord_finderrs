@@ -1,41 +1,50 @@
 import { useState, useRef, useCallback } from "react";
-import { Upload, Music2, Download, Loader2, AlertCircle, RotateCcw, Piano } from "lucide-react";
+import { Upload, Music2, Loader2, AlertCircle, RotateCcw, Guitar, Download } from "lucide-react";
 
 /**
- * AudioToMidi
- * -----------
- * Upload audio -> AI model (Spotify Basic Pitch) jalan LANGSUNG di browser,
- * hasil note events dirangkai jadi file .midi -> download.
+ * ChordDetector
+ * -------------
+ * Upload audio -> Basic Pitch (Spotify) jalan LANGSUNG di browser buat deteksi
+ * nada-nada yang main bareng -> nada-nada itu dikelompokin per window waktu ->
+ * tiap window dicocokin ke pola chord MAYOR/MINOR (chroma template matching)
+ * -> keluar progresi chord sepanjang lagu (C, Am, F, G, dst).
  *
- * TIDAK ADA BACKEND. Semua proses (decode audio, resample, inference model,
- * generate file MIDI) terjadi di device user sendiri. Audio nggak pernah
+ * TIDAK ADA BACKEND. Semua proses di device user sendiri, audio nggak pernah
  * dikirim ke server manapun.
  *
- * Dependency yang harus diinstall:
- *   npm install @spotify/basic-pitch @tonejs/midi
- *
+ * Dependency: npm install @spotify/basic-pitch
  * Model file WAJIB ditaruh di public/basic-pitch-model/ (lihat README.md)
+ *
+ * Catatan desain: ini SENGAJA cuma ngenalin MAYOR & MINOR (gak ada 7th, sus,
+ * dim, aug, dst) -- biar hasilnya simpel & gampang dibaca buat main gitar/piano.
  */
 
 const MODEL_PATH = "/basic-pitch-model/model.json";
 
-// Threshold buat outputToNotesPoly -- lihat README kalau mau tuning akurasi
-const ONSET_THRESHOLD = 0.5; // makin tinggi = makin strict soal awal not baru
-const FRAME_THRESHOLD = 0.3; // makin tinggi = makin strict soal not yang "nyambung"
-const MIN_NOTE_LENGTH = 5; // minimum panjang not (dalam frame) biar noise kebuang
+// Threshold deteksi not polyphonic (dari Basic Pitch)
+const ONSET_THRESHOLD = 0.4;
+const FRAME_THRESHOLD = 0.25;
+const MIN_NOTE_LENGTH = 3;
+
+// Panjang tiap window analisis chord, dalam detik.
+// Makin kecil = makin detail (nangkep pergantian chord cepat) tapi makin gampang goyah/noise.
+const WINDOW_SIZE = 1.0;
+
+// Minimum "energi" nada dalam satu window biar dianggap ada chord (bukan hening/noise).
+const MIN_ENERGY = 0.12;
+
+// Minimum durasi satu segmen chord (detik) -- segmen yang lebih pendek dari ini
+// digabung ke tetangganya biar progresi gak "kedip-kedip".
+const MIN_SEGMENT_DURATION = 0.75;
+
+const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+const MAJOR_INTERVALS = [0, 4, 7];
+const MINOR_INTERVALS = [0, 3, 7];
 
 function formatTime(sec) {
   const m = Math.floor(sec / 60);
   const s = Math.floor(sec % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
-}
-
-// Konversi MIDI note number -> nama not (buat preview list, misal 60 -> "C4")
-function midiToNoteName(midiNumber) {
-  const names = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-  const octave = Math.floor(midiNumber / 12) - 1;
-  const name = names[midiNumber % 12];
-  return `${name}${octave}`;
 }
 
 async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
@@ -44,7 +53,6 @@ async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
   const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
   await audioCtx.close();
 
-  // Mixdown ke mono (rata-rata semua channel)
   const numChannels = decoded.numberOfChannels;
   const originalLength = decoded.length;
   const monoData = new Float32Array(originalLength);
@@ -56,7 +64,6 @@ async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
     monoData[i] = sum / numChannels;
   }
 
-  // Resample linear interpolation ke 22050Hz (wajib, model dilatih di rate ini)
   const originalRate = decoded.sampleRate;
   if (originalRate === targetSampleRate) return monoData;
 
@@ -75,8 +82,7 @@ async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
 }
 
 async function audioToNotes(audioData, onProgress) {
-  const { BasicPitch, outputToNotesPoly, addPitchBendsToNoteEvents, noteFramesToTime } =
-    await import("@spotify/basic-pitch");
+  const { BasicPitch, outputToNotesPoly, noteFramesToTime } = await import("@spotify/basic-pitch");
 
   const basicPitch = new BasicPitch(MODEL_PATH);
 
@@ -95,47 +101,108 @@ async function audioToNotes(audioData, onProgress) {
   );
 
   const notes = noteFramesToTime(
-    addPitchBendsToNoteEvents(
-      contours,
-      outputToNotesPoly(frames, onsets, ONSET_THRESHOLD, FRAME_THRESHOLD, MIN_NOTE_LENGTH)
-    )
+    outputToNotesPoly(frames, onsets, ONSET_THRESHOLD, FRAME_THRESHOLD, MIN_NOTE_LENGTH)
   );
 
   return notes;
 }
 
-async function notesToMidiBytes(notes) {
-  const { Midi } = await import("@tonejs/midi");
-  const midi = new Midi();
-  const track = midi.addTrack();
+// Sebar tiap not ke window waktu yang dia lewatin, bobotnya pakai amplitude not itu.
+function buildChromaWindows(notes, totalDuration) {
+  const numWindows = Math.max(1, Math.ceil(totalDuration / WINDOW_SIZE));
+  const windows = Array.from({ length: numWindows }, () => new Array(12).fill(0));
 
   notes.forEach((note) => {
-    track.addNote({
-      midi: note.pitchMidi,
-      time: note.startTimeSeconds,
-      duration: note.durationSeconds,
-      velocity: Math.min(1, Math.max(0, note.amplitude)),
-    });
+    const start = note.startTimeSeconds;
+    const end = start + note.durationSeconds;
+    const pitchClass = ((Math.round(note.pitchMidi) % 12) + 12) % 12;
+    const amp = note.amplitude || 0.5;
 
-    if (note.pitchBends) {
-      note.pitchBends.forEach((bend, i) => {
-        track.addPitchBend({
-          time: note.startTimeSeconds + (i * note.durationSeconds) / note.pitchBends.length,
-          value: bend,
-        });
-      });
+    const startW = Math.max(0, Math.floor(start / WINDOW_SIZE));
+    const endW = Math.min(numWindows - 1, Math.floor(end / WINDOW_SIZE));
+    for (let w = startW; w <= endW; w++) {
+      windows[w][pitchClass] += amp;
     }
   });
 
-  return midi.toArray();
+  return windows;
 }
 
-export default function AudioToMidi() {
+// Cocokin satu chroma vector ke 12 pola mayor + 12 pola minor, ambil skor tertinggi.
+function matchChord(chroma) {
+  const totalEnergy = chroma.reduce((a, b) => a + b, 0);
+  if (totalEnergy < MIN_ENERGY) return null;
+
+  let best = { root: -1, quality: "", score: -Infinity };
+
+  for (let root = 0; root < 12; root++) {
+    const majorScore = MAJOR_INTERVALS.reduce((s, iv) => s + chroma[(root + iv) % 12], 0);
+    const minorScore = MINOR_INTERVALS.reduce((s, iv) => s + chroma[(root + iv) % 12], 0);
+
+    if (majorScore > best.score) best = { root, quality: "", score: majorScore };
+    if (minorScore > best.score) best = { root, quality: "m", score: minorScore };
+  }
+
+  return `${NOTE_NAMES[best.root]}${best.quality}`;
+}
+
+// Window per-window -> gabung window berlabel sama jadi satu segmen, lalu
+// gabung segmen yang kependekan ke tetangganya biar progresi rapi.
+function windowsToSegments(windows) {
+  let segments = [];
+
+  windows.forEach((chroma, i) => {
+    const label = matchChord(chroma) || "N.C.";
+    const startTime = i * WINDOW_SIZE;
+    const endTime = startTime + WINDOW_SIZE;
+
+    const last = segments[segments.length - 1];
+    if (last && last.chord === label) {
+      last.endTime = endTime;
+    } else {
+      segments.push({ chord: label, startTime, endTime });
+    }
+  });
+
+  // Gabungin segmen pendek ke segmen sebelah (biasanya noise di antara dua chord stabil)
+  let merged = true;
+  while (merged) {
+    merged = false;
+    for (let i = 0; i < segments.length; i++) {
+      const dur = segments[i].endTime - segments[i].startTime;
+      if (dur < MIN_SEGMENT_DURATION && segments.length > 1) {
+        if (i === 0) {
+          segments[1].startTime = segments[0].startTime;
+          segments.shift();
+        } else {
+          segments[i - 1].endTime = segments[i].endTime;
+          segments.splice(i, 1);
+        }
+        merged = true;
+        break;
+      }
+    }
+  }
+
+  // Setelah digabung, mungkin ada dua segmen bersebelahan dengan chord sama -> gabung lagi
+  const final = [];
+  segments.forEach((seg) => {
+    const last = final[final.length - 1];
+    if (last && last.chord === seg.chord) {
+      last.endTime = seg.endTime;
+    } else {
+      final.push({ ...seg });
+    }
+  });
+
+  return final.filter((s) => s.chord !== "N.C." || final.length === 1);
+}
+
+export default function ChordDetector() {
   const [file, setFile] = useState(null);
   const [status, setStatus] = useState("idle"); // idle | processing | ready | error
   const [progress, setProgress] = useState(0);
-  const [notes, setNotes] = useState([]);
-  const [midiBytes, setMidiBytes] = useState(null);
+  const [segments, setSegments] = useState([]);
   const [errorMsg, setErrorMsg] = useState("");
   const [isDragOver, setIsDragOver] = useState(false);
 
@@ -152,25 +219,31 @@ export default function AudioToMidi() {
     setStatus("processing");
     setProgress(0);
     setErrorMsg("");
-    setNotes([]);
-    setMidiBytes(null);
+    setSegments([]);
 
     try {
       const arrayBuffer = await selectedFile.arrayBuffer();
       const audioData = await decodeAndResample(arrayBuffer);
+      const totalDuration = audioData.length / 22050;
 
-      const detectedNotes = await audioToNotes(audioData, (p) => setProgress(p));
+      const notes = await audioToNotes(audioData, (p) => setProgress(p));
 
-      if (detectedNotes.length === 0) {
-        setErrorMsg("Nggak ada not yang terdeteksi. Coba audio yang lebih jelas (vokal/instrumen tunggal biasanya lebih akurat dari full mix).");
+      if (notes.length === 0) {
+        setErrorMsg("Nggak ada nada yang terdeteksi. Coba audio yang lebih jelas (musik dengan iringan chord yang jelas biasanya lebih akurat dari full mix yang padat).");
         setStatus("error");
         return;
       }
 
-      const bytes = await notesToMidiBytes(detectedNotes);
+      const windows = buildChromaWindows(notes, totalDuration);
+      const chordSegments = windowsToSegments(windows);
 
-      setNotes(detectedNotes);
-      setMidiBytes(bytes);
+      if (chordSegments.length === 0) {
+        setErrorMsg("Chord nggak berhasil dikenali dari audio ini.");
+        setStatus("error");
+        return;
+      }
+
+      setSegments(chordSegments);
       setStatus("ready");
     } catch (err) {
       setErrorMsg(`Gagal memproses audio: ${err.message || "unknown error"}`);
@@ -185,14 +258,16 @@ export default function AudioToMidi() {
     if (dropped) handleFile(dropped);
   };
 
-  const downloadMidi = () => {
-    if (!midiBytes) return;
-    const blob = new Blob([midiBytes], { type: "audio/midi" });
+  const downloadChordChart = () => {
+    if (!segments.length) return;
+    const lines = segments.map((s) => `${formatTime(s.startTime)} - ${formatTime(s.endTime)}\t${s.chord}`);
+    const text = `Chord chart: ${file?.name || "audio"}\n\n${lines.join("\n")}\n`;
+    const blob = new Blob([text], { type: "text/plain" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
-    const baseName = file?.name?.replace(/\.[^/.]+$/, "") || "transcription";
+    const baseName = file?.name?.replace(/\.[^/.]+$/, "") || "chords";
     a.href = url;
-    a.download = `${baseName}.mid`;
+    a.download = `${baseName}-chords.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -203,8 +278,7 @@ export default function AudioToMidi() {
     setFile(null);
     setStatus("idle");
     setProgress(0);
-    setNotes([]);
-    setMidiBytes(null);
+    setSegments([]);
     setErrorMsg("");
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
@@ -216,11 +290,11 @@ export default function AudioToMidi() {
         {/* Header */}
         <div className="mb-6 flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-[#3ECF8E] to-[#2A9D6F] flex items-center justify-center shadow-lg shadow-[#3ECF8E]/20">
-            <Piano className="w-5 h-5 text-[#0A0C10]" strokeWidth={2.5} />
+            <Guitar className="w-5 h-5 text-[#0A0C10]" strokeWidth={2.5} />
           </div>
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-white">Audio ke MIDI</h1>
-            <p className="text-xs text-[#8B8F98]">Upload lagu, dapatkan file .mid — semua proses di browser lu</p>
+            <h1 className="text-lg font-semibold tracking-tight text-white">Deteksi Chord</h1>
+            <p className="text-xs text-[#8B8F98]">Upload lagu, dapatkan progresi chord mayor/minor — semua di browser lu</p>
           </div>
         </div>
 
@@ -265,7 +339,7 @@ export default function AudioToMidi() {
                 <Loader2 className="w-8 h-8 text-[#3ECF8E] animate-spin" />
                 <div className="text-center w-full max-w-xs">
                   <p className="text-sm font-medium text-white truncate">{file?.name}</p>
-                  <p className="text-xs text-[#8B8F98] mt-1">AI sedang mentranskrip not...</p>
+                  <p className="text-xs text-[#8B8F98] mt-1">AI sedang menganalisis chord...</p>
                 </div>
                 <div className="w-full max-w-xs h-1.5 rounded-full bg-white/5 overflow-hidden">
                   <div
@@ -295,46 +369,41 @@ export default function AudioToMidi() {
                 {/* Ringkasan hasil */}
                 <div className="rounded-xl bg-black/40 border border-white/5 px-6 py-8 flex flex-col items-center gap-2">
                   <span className="text-5xl font-bold tabular-nums text-[#3ECF8E]" style={{ textShadow: "0 0 24px rgba(62,207,142,0.35)" }}>
-                    {notes.length}
+                    {segments.length}
                   </span>
                   <span className="text-[11px] uppercase tracking-widest text-[#5A5D66]">
-                    not terdeteksi
+                    segmen chord
                   </span>
                 </div>
 
-                {/* Preview beberapa not pertama */}
+                {/* Timeline progresi chord */}
                 <div className="rounded-xl bg-white/[0.02] border border-white/5 p-3">
-                  <p className="text-[10px] uppercase tracking-widest text-[#5A5D66] mb-2 px-1">Preview not (10 pertama)</p>
+                  <p className="text-[10px] uppercase tracking-widest text-[#5A5D66] mb-2 px-1">Progresi chord</p>
                   <div className="flex gap-1.5 overflow-x-auto pb-1">
-                    {notes.slice(0, 10).map((n, i) => (
+                    {segments.map((s, i) => (
                       <div
                         key={i}
-                        className="shrink-0 flex flex-col items-center justify-center rounded-lg px-3 py-2 min-w-[52px] bg-white/[0.04]"
+                        className="shrink-0 flex flex-col items-center justify-center rounded-lg px-4 py-3 min-w-[64px] bg-white/[0.04]"
                       >
-                        <span className="text-xs font-bold text-[#B8BAC0]">
-                          {midiToNoteName(Math.round(n.pitchMidi))}
+                        <span className="text-base font-bold text-[#3ECF8E]">
+                          {s.chord}
                         </span>
                         <span className="text-[9px] mt-0.5 text-[#5A5D66]">
-                          {formatTime(n.startTimeSeconds)}
+                          {formatTime(s.startTime)}
                         </span>
                       </div>
                     ))}
-                    {notes.length > 10 && (
-                      <div className="shrink-0 flex items-center justify-center px-3 text-[11px] text-[#5A5D66]">
-                        +{notes.length - 10} lagi
-                      </div>
-                    )}
                   </div>
                 </div>
 
                 {/* Actions */}
                 <div className="flex items-center gap-3">
                   <button
-                    onClick={downloadMidi}
+                    onClick={downloadChordChart}
                     className="flex-1 flex items-center justify-center gap-2 rounded-full bg-[#3ECF8E] text-[#0A0C10] font-semibold text-sm py-3 hover:brightness-110 transition-all"
                   >
                     <Download className="w-4 h-4" />
-                    Download .mid
+                    Download chord chart (.txt)
                   </button>
                   <button
                     onClick={reset}
@@ -346,8 +415,8 @@ export default function AudioToMidi() {
                 </div>
 
                 <p className="text-[11px] text-[#5A5D66] text-center leading-relaxed">
-                  Import file .mid ke FL Studio Mobile lewat file manager, atau share ke app FL Studio Mobile langsung.
-                  Not belum di-quantize — sesuaikan grid/snap di piano roll kalau perlu.
+                  Cuma dikenalin sebagai mayor/minor (C, C#m, dst) — nggak termasuk 7th/sus/dim.
+                  Musik dengan aransemen padat (full band) bisa bikin deteksi kurang presisi.
                 </p>
               </div>
             )}

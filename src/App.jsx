@@ -1,7 +1,7 @@
-import AudioToMidi from "./components/AudioToMidi";
+import ChordDetector from "./components/ChordDetector";
 
 function App() {
-  return <AudioToMidi />;
+  return <ChordDetector />;
 }
 
 export default App;
