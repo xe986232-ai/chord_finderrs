@@ -1,17 +1,23 @@
-# Deteksi Chord — 100% Client-Side
+# Deteksi Chord — 100% Client-Side (Essentia.js)
 
 Upload lagu → dapat progresi chord (mayor/minor) sepanjang lagu.
 **Tanpa backend. Tanpa server. Tanpa biaya hosting compute.**
 
-Ditenagai oleh [Basic Pitch](https://github.com/spotify/basic-pitch) — model
-open-source Spotify (Apache-2.0 License) yang jalan penuh di browser lewat
-TensorFlow.js, buat deteksi nada-nada yang main bareng (polyphonic).
-Nada-nada itu lalu dikelompokin per window waktu dan dicocokin ke pola
-chord **mayor/minor** (chroma template matching) — output-nya progresi
-chord kayak `C`, `Am`, `F`, `G`, dst.
+Ditenagai oleh [Essentia.js](https://github.com/MTG/essentia.js) — port
+WebAssembly dari library MIR (Music Information Retrieval) **Essentia**
+buatan Music Technology Group, UPF Barcelona. Ini bukan model transkripsi
+melodi yang "diakalin" buat nebak chord — ini algoritma yang memang
+dirancang buat chord recognition:
 
-> Sengaja cuma dikenalin mayor & minor (gak ada 7th/sus/dim/aug) biar
-> hasilnya simpel dan gampang langsung dipakai buat main gitar/piano.
+1. **HPCP** (Harmonic Pitch Class Profile) — hitung chroma feature langsung
+   dari spektrum audio tiap frame, tahan terhadap harmonik/overtone
+2. **ChordsDetection** — cocokkan tiap window waktu ke triad **mayor/minor**
+   terdekat, output progresi chord kayak `C`, `Am`, `F`, `G`, dst.
+
+> Versi sebelumnya sempat pakai Basic Pitch (model transkripsi melodi
+> Spotify) yang dipaksa buat nebak chord dari kumpulan not — hasilnya
+> nggak akurat karena model itu memang bukan buat itu. Sekarang full
+> ganti ke pipeline MIR yang proper.
 
 ---
 
@@ -19,26 +25,28 @@ chord kayak `C`, `Am`, `F`, `G`, dst.
 
 ### 1. Install dependency
 
-Di root project (atau project React manapun):
-
 ```bash
-npm install @spotify/basic-pitch
+npm install essentia.js
 ```
 
-### 2. Copy model file ke folder `public/`
+### 2. Copy file WASM ke folder `public/`
 
-Model AI-nya (~900KB total) harus bisa diakses lewat URL statis, karena
-di-load lewat `fetch` di browser, bukan bundling biasa via import.
+Essentia.js WAJIB di-load lewat `<script>` tag runtime (bukan bundling
+langsung lewat `import`), karena ini cara yang direkomendasikan resmi
+buat modul WASM-nya di browser (menghindari masalah bundler dengan
+Emscripten output).
 
 ```bash
-mkdir -p public/basic-pitch-model
-cp node_modules/@spotify/basic-pitch/model/model.json public/basic-pitch-model/
-cp node_modules/@spotify/basic-pitch/model/*.bin public/basic-pitch-model/
+mkdir -p public/essentia
+cp node_modules/essentia.js/dist/essentia-wasm.web.js public/essentia/
+cp node_modules/essentia.js/dist/essentia-wasm.web.wasm public/essentia/
+cp node_modules/essentia.js/dist/essentia.js-core.js public/essentia/
 ```
 
-Cek folder `public/basic-pitch-model/` harus ada 2 file:
-- `model.json` (~175KB) — arsitektur model
-- `group1-shard1of1.bin` (~742KB) — bobot/weights hasil training
+Cek folder `public/essentia/` harus ada 3 file:
+- `essentia-wasm.web.js` (~220KB) — loader WASM
+- `essentia-wasm.web.wasm` (~1.9MB) — binary WASM Essentia
+- `essentia.js-core.js` (~340KB) — JS API wrapper
 
 ### 3. Copy komponen ke project
 
@@ -68,42 +76,41 @@ progresi chord-nya, klik **Download chord chart (.txt)** kalau mau simpan.
 
 ## Tuning akurasi (opsional)
 
-Di dalam `ChordDetector.jsx`, ada beberapa konstanta yang bisa disesuaikan:
+Di dalam `ChordDetector.jsx`:
 
 ```js
-const WINDOW_SIZE = 1.0;          // panjang tiap window analisis (detik)
-const MIN_ENERGY = 0.12;          // minimum "energi" nada biar dianggap ada chord
+const FRAME_SIZE = 4096;        // ukuran frame analisis spektrum
+const HOP_SIZE = 2048;          // jarak antar frame
+const CHORD_WINDOW_SIZE = 2;    // detik, smoothing internal ChordsDetection
 const MIN_SEGMENT_DURATION = 0.75; // segmen lebih pendek dari ini digabung ke tetangga
+const SILENCE_RMS_RATIO = 0.06; // ambang batas hening relatif ke RMS maksimum lagu
 ```
 
 **Kalau chord kerasa "kedip-kedip" / kecepetan gonta-ganti** → naikkan
-`WINDOW_SIZE` (coba 1.5-2.0) atau `MIN_SEGMENT_DURATION`
+`CHORD_WINDOW_SIZE` (coba 3-4) atau `MIN_SEGMENT_DURATION`
 
-**Kalau chord yang harusnya kedeteksi malah kelewat/gabung jadi satu** →
-turunkan `WINDOW_SIZE` (coba 0.5-0.75)
-
-**Kalau banyak muncul "N.C." (no chord) padahal ada musiknya** → turunkan
-`MIN_ENERGY`
+**Kalau banyak muncul "N.C." padahal ada musiknya** → turunkan
+`SILENCE_RMS_RATIO`
 
 ---
 
 ## Batasan yang perlu diketahui
 
 - **Paling akurat buat aransemen yang jelas** (gitar/piano dengan chord
-  yang jelas) — full band mix yang padat bisa bikin deteksi kurang presisi
-  karena banyak nada saling tumpang tindih
+  yang jelas) — full band mix yang padat tetap bisa lebih menantang karena
+  banyak instrumen tumpang tindih di frekuensi yang sama
 - **Cuma mengenali mayor & minor** — chord kompleks (7th, sus, dim, aug,
-  add9, dst) bakal dibulatkan ke mayor/minor terdekat
-- **Drum/perkusi nggak ngaruh ke deteksi** — chord detection cuma
-  ngeliat nada pitch, bukan ritme
-- **Reverb berat bisa bikin bingung model** — rekaman kering (dry) lebih
-  bersih hasilnya
-- Proses ~5-15 detik buat lagu 3 menit di laptop biasa, tergantung device
+  add9, dst) bakal dibulatkan ke mayor/minor terdekat (ini keputusan
+  desain, bukan limitasi algoritma — HPCP + ChordsDetection sebenarnya
+  bisa dikembangkan buat chord lebih kompleks kalau nanti dibutuhkan)
+- Proses per-frame lumayan banyak kalkulasi WASM, tapi tetap jalan
+  dalam hitungan detik untuk lagu 3-4 menit di device modern
 
 ---
 
 ## Referensi
 
-- Model: https://github.com/spotify/basic-pitch (Apache-2.0)
-- Package browser: https://github.com/spotify/basic-pitch-ts
-- Demo resmi Spotify: https://basicpitch.spotify.com
+- Library: https://github.com/MTG/essentia.js
+- Dokumentasi algoritma HPCP: https://essentia.upf.edu/reference/std_HPCP.html
+- Dokumentasi algoritma ChordsDetection: https://essentia.upf.edu/reference/std_ChordsDetection.html
+- Tutorial chord estimation (Python, konsepnya sama): https://essentia.upf.edu/tutorial_tonal_chords.html

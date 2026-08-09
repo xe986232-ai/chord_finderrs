@@ -4,42 +4,76 @@ import { Upload, Music2, Loader2, AlertCircle, RotateCcw, Guitar, Download } fro
 /**
  * ChordDetector
  * -------------
- * Upload audio -> Basic Pitch (Spotify) jalan LANGSUNG di browser buat deteksi
- * nada-nada yang main bareng -> nada-nada itu dikelompokin per window waktu ->
- * tiap window dicocokin ke pola chord MAYOR/MINOR (chroma template matching)
- * -> keluar progresi chord sepanjang lagu (C, Am, F, G, dst).
+ * Upload audio -> Essentia.js (MTG/UPF, port WASM dari library Essentia C++)
+ * jalan LANGSUNG di browser -> hitung HPCP (Harmonic Pitch Class Profile,
+ * chroma feature) per frame dari spektrum audio -> ChordsDetection
+ * (algoritma MIR standar) mencocokkan tiap window ke triad MAYOR/MINOR
+ * terdekat -> keluar progresi chord (C, Am, F, G, dst).
+ *
+ * Ini beda dari pendekatan sebelumnya yang "akal-akalan" numpang di model
+ * transkripsi melodi (Basic Pitch) -- sekarang pakai algoritma yang memang
+ * dirancang buat chord recognition (HPCP + ChordsDetection), jadi jauh
+ * lebih tahan sama harmonik/overtone instrumen asli.
  *
  * TIDAK ADA BACKEND. Semua proses di device user sendiri, audio nggak pernah
  * dikirim ke server manapun.
  *
- * Dependency: npm install @spotify/basic-pitch
- * Model file WAJIB ditaruh di public/basic-pitch-model/ (lihat README.md)
- *
- * Catatan desain: ini SENGAJA cuma ngenalin MAYOR & MINOR (gak ada 7th, sus,
- * dim, aug, dst) -- biar hasilnya simpel & gampang dibaca buat main gitar/piano.
+ * Dependency: npm install essentia.js
+ * File WASM-nya WAJIB ditaruh di public/essentia/ (lihat README.md) --
+ * di-load lewat <script> tag runtime (bukan bundling langsung), karena
+ * itu cara yang direkomendasikan resmi buat WASM Essentia di browser.
  */
 
-const MODEL_PATH = "/basic-pitch-model/model.json";
+const ESSENTIA_WASM_JS = "/essentia/essentia-wasm.web.js";
+const ESSENTIA_CORE_JS = "/essentia/essentia.js-core.js";
 
-// Threshold deteksi not polyphonic (dari Basic Pitch)
-const ONSET_THRESHOLD = 0.4;
-const FRAME_THRESHOLD = 0.25;
-const MIN_NOTE_LENGTH = 3;
+const FRAME_SIZE = 4096;
+const HOP_SIZE = 2048;
+const CHORD_WINDOW_SIZE = 2; // detik, dipakai internal oleh ChordsDetection buat smoothing
 
-// Panjang tiap window analisis chord, dalam detik.
-// Makin kecil = makin detail (nangkep pergantian chord cepat) tapi makin gampang goyah/noise.
-const WINDOW_SIZE = 1.0;
-
-// Minimum "energi" nada dalam satu window biar dianggap ada chord (bukan hening/noise).
-const MIN_ENERGY = 0.12;
-
-// Minimum durasi satu segmen chord (detik) -- segmen yang lebih pendek dari ini
+// Minimum durasi satu segmen chord (detik) -- segmen lebih pendek dari ini
 // digabung ke tetangganya biar progresi gak "kedip-kedip".
 const MIN_SEGMENT_DURATION = 0.75;
 
-const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
-const MAJOR_INTERVALS = [0, 4, 7];
-const MINOR_INTERVALS = [0, 3, 7];
+// Frame dengan energi di bawah ini dianggap hening -> dilabeli "N.C." (no chord)
+const SILENCE_RMS_RATIO = 0.06; // relatif terhadap RMS maksimum di seluruh lagu
+
+let essentiaLoadPromise = null;
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const existing = document.querySelector(`script[src="${src}"]`);
+    if (existing) {
+      if (existing.dataset.loaded === "true") return resolve();
+      existing.addEventListener("load", () => resolve());
+      existing.addEventListener("error", () => reject(new Error(`Gagal load ${src}`)));
+      return;
+    }
+    const script = document.createElement("script");
+    script.src = src;
+    script.async = true;
+    script.addEventListener("load", () => {
+      script.dataset.loaded = "true";
+      resolve();
+    });
+    script.addEventListener("error", () => reject(new Error(`Gagal load ${src}`)));
+    document.body.appendChild(script);
+  });
+}
+
+// Load essentia-wasm.web.js + essentia.js-core.js sekali aja (cached), lalu
+// inisialisasi instance Essentia siap pakai.
+async function loadEssentia() {
+  if (!essentiaLoadPromise) {
+    essentiaLoadPromise = (async () => {
+      await loadScript(ESSENTIA_WASM_JS);
+      await loadScript(ESSENTIA_CORE_JS);
+      const wasmModule = await window.EssentiaWASM();
+      return new window.Essentia(wasmModule);
+    })();
+  }
+  return essentiaLoadPromise;
+}
 
 function formatTime(sec) {
   const m = Math.floor(sec / 60);
@@ -47,16 +81,16 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
-async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
+async function decodeToMono(arrayBuffer) {
   const AudioCtx = window.AudioContext || window.webkitAudioContext;
   const audioCtx = new AudioCtx();
   const decoded = await audioCtx.decodeAudioData(arrayBuffer.slice(0));
   await audioCtx.close();
 
   const numChannels = decoded.numberOfChannels;
-  const originalLength = decoded.length;
-  const monoData = new Float32Array(originalLength);
-  for (let i = 0; i < originalLength; i++) {
+  const length = decoded.length;
+  const monoData = new Float32Array(length);
+  for (let i = 0; i < length; i++) {
     let sum = 0;
     for (let ch = 0; ch < numChannels; ch++) {
       sum += decoded.getChannelData(ch)[i];
@@ -64,107 +98,109 @@ async function decodeAndResample(arrayBuffer, targetSampleRate = 22050) {
     monoData[i] = sum / numChannels;
   }
 
-  const originalRate = decoded.sampleRate;
-  if (originalRate === targetSampleRate) return monoData;
-
-  const ratio = targetSampleRate / originalRate;
-  const newLength = Math.floor(originalLength * ratio);
-  const resampled = new Float32Array(newLength);
-  for (let i = 0; i < newLength; i++) {
-    const pos = i / ratio;
-    const idx = Math.floor(pos);
-    const frac = pos - idx;
-    const a = monoData[idx] || 0;
-    const b = monoData[idx + 1] || monoData[idx] || 0;
-    resampled[i] = a + (b - a) * frac;
-  }
-  return resampled;
+  return { audioData: monoData, sampleRate: decoded.sampleRate };
 }
 
-async function audioToNotes(audioData, onProgress) {
-  const { BasicPitch, outputToNotesPoly, noteFramesToTime } = await import("@spotify/basic-pitch");
+// Jalanin pipeline HPCP standar (Windowing -> Spectrum -> SpectralPeaks -> HPCP)
+// per frame, sambil ngitung RMS tiap frame buat gerbang "hening".
+async function extractChords(essentia, audioData, sampleRate, onProgress) {
+  const frames = essentia.FrameGenerator(audioData, FRAME_SIZE, HOP_SIZE);
+  const numFrames = frames.size();
 
-  const basicPitch = new BasicPitch(MODEL_PATH);
+  const pcpVec = new essentia.module.VectorVectorFloat();
+  const rmsValues = new Float32Array(numFrames);
 
-  const frames = [];
-  const onsets = [];
-  const contours = [];
+  for (let i = 0; i < numFrames; i++) {
+    const frame = frames.get(i);
 
-  await basicPitch.evaluateModel(
-    audioData,
-    (f, o, c) => {
-      frames.push(...f);
-      onsets.push(...o);
-      contours.push(...c);
-    },
-    (p) => onProgress(p)
-  );
+    const rms = essentia.RMS(frame).rms;
+    rmsValues[i] = rms;
 
-  const notes = noteFramesToTime(
-    outputToNotesPoly(frames, onsets, ONSET_THRESHOLD, FRAME_THRESHOLD, MIN_NOTE_LENGTH)
-  );
+    const windowed = essentia.Windowing(frame, true, FRAME_SIZE, "blackmanharris62", 0, true);
+    const spectrum = essentia.Spectrum(windowed.frame, FRAME_SIZE);
+    const peaks = essentia.SpectralPeaks(
+      spectrum.spectrum,
+      0.00001, // magnitudeThreshold
+      5000, // maxFrequency
+      100, // maxPeaks
+      40, // minFrequency
+      "magnitude", // orderBy
+      sampleRate
+    );
+    const hpcp = essentia.HPCP(
+      peaks.frequencies,
+      peaks.magnitudes,
+      true, // bandPreset
+      500, // bandSplitFrequency
+      0, // harmonics
+      5000, // maxFrequency
+      false, // maxShifted
+      40, // minFrequency
+      false, // nonLinear
+      "unitMax", // normalized
+      440, // referenceFrequency
+      sampleRate,
+      12, // size
+      "squaredCosine", // weightType
+      1 // windowSize
+    );
 
-  return notes;
-}
+    pcpVec.push_back(hpcp.hpcp);
 
-// Sebar tiap not ke window waktu yang dia lewatin, bobotnya pakai amplitude not itu.
-function buildChromaWindows(notes, totalDuration) {
-  const numWindows = Math.max(1, Math.ceil(totalDuration / WINDOW_SIZE));
-  const windows = Array.from({ length: numWindows }, () => new Array(12).fill(0));
-
-  notes.forEach((note) => {
-    const start = note.startTimeSeconds;
-    const end = start + note.durationSeconds;
-    const pitchClass = ((Math.round(note.pitchMidi) % 12) + 12) % 12;
-    const amp = note.amplitude || 0.5;
-
-    const startW = Math.max(0, Math.floor(start / WINDOW_SIZE));
-    const endW = Math.min(numWindows - 1, Math.floor(end / WINDOW_SIZE));
-    for (let w = startW; w <= endW; w++) {
-      windows[w][pitchClass] += amp;
+    if (i % 80 === 0) {
+      onProgress(i / numFrames);
+      // kasih napas ke browser biar UI (progress bar) gak nge-freeze
+      await new Promise((resolve) => setTimeout(resolve, 0));
     }
+  }
+
+  onProgress(0.95);
+
+  const result = essentia.ChordsDetection(pcpVec, HOP_SIZE, sampleRate, CHORD_WINDOW_SIZE);
+
+  const chordLabels = [];
+  const chordsOut = result.chords;
+  const total = typeof chordsOut.size === "function" ? chordsOut.size() : chordsOut.length;
+  for (let i = 0; i < total; i++) {
+    const label = typeof chordsOut.get === "function" ? chordsOut.get(i) : chordsOut[i];
+    chordLabels.push(label || "N");
+  }
+
+  // Gerbang hening: cari RMS maksimum, tandai frame yang terlalu pelan sebagai "N.C."
+  let maxRms = 0;
+  for (let i = 0; i < rmsValues.length; i++) {
+    if (rmsValues[i] > maxRms) maxRms = rmsValues[i];
+  }
+  const silenceThreshold = maxRms * SILENCE_RMS_RATIO;
+
+  const hopDuration = HOP_SIZE / sampleRate;
+  const labeled = chordLabels.map((label, i) => {
+    const isSilent = (rmsValues[i] || 0) < silenceThreshold;
+    return {
+      chord: isSilent || label === "N" ? "N.C." : label,
+      time: i * hopDuration,
+    };
   });
 
-  return windows;
+  return labeled;
 }
 
-// Cocokin satu chroma vector ke 12 pola mayor + 12 pola minor, ambil skor tertinggi.
-function matchChord(chroma) {
-  const totalEnergy = chroma.reduce((a, b) => a + b, 0);
-  if (totalEnergy < MIN_ENERGY) return null;
+// Gabungin label per-frame jadi segmen, lalu gabung segmen kependekan ke tetangganya.
+function toSegments(labeled, totalDuration) {
+  if (labeled.length === 0) return [];
 
-  let best = { root: -1, quality: "", score: -Infinity };
-
-  for (let root = 0; root < 12; root++) {
-    const majorScore = MAJOR_INTERVALS.reduce((s, iv) => s + chroma[(root + iv) % 12], 0);
-    const minorScore = MINOR_INTERVALS.reduce((s, iv) => s + chroma[(root + iv) % 12], 0);
-
-    if (majorScore > best.score) best = { root, quality: "", score: majorScore };
-    if (minorScore > best.score) best = { root, quality: "m", score: minorScore };
-  }
-
-  return `${NOTE_NAMES[best.root]}${best.quality}`;
-}
-
-// Window per-window -> gabung window berlabel sama jadi satu segmen, lalu
-// gabung segmen yang kependekan ke tetangganya biar progresi rapi.
-function windowsToSegments(windows) {
   let segments = [];
-
-  windows.forEach((chroma, i) => {
-    const label = matchChord(chroma) || "N.C.";
-    const startTime = i * WINDOW_SIZE;
-    const endTime = startTime + WINDOW_SIZE;
-
+  labeled.forEach((entry, i) => {
+    const startTime = entry.time;
+    const endTime = i + 1 < labeled.length ? labeled[i + 1].time : totalDuration;
     const last = segments[segments.length - 1];
-    if (last && last.chord === label) {
+    if (last && last.chord === entry.chord) {
       last.endTime = endTime;
     } else {
-      segments.push({ chord: label, startTime, endTime });
+      segments.push({ chord: entry.chord, startTime, endTime });
     }
   });
 
-  // Gabungin segmen pendek ke segmen sebelah (biasanya noise di antara dua chord stabil)
   let merged = true;
   while (merged) {
     merged = false;
@@ -184,7 +220,6 @@ function windowsToSegments(windows) {
     }
   }
 
-  // Setelah digabung, mungkin ada dua segmen bersebelahan dengan chord sama -> gabung lagi
   const final = [];
   segments.forEach((seg) => {
     const last = final[final.length - 1];
@@ -195,7 +230,7 @@ function windowsToSegments(windows) {
     }
   });
 
-  return final.filter((s) => s.chord !== "N.C." || final.length === 1);
+  return final;
 }
 
 export default function ChordDetector() {
@@ -222,27 +257,22 @@ export default function ChordDetector() {
     setSegments([]);
 
     try {
+      const essentia = await loadEssentia();
+
       const arrayBuffer = await selectedFile.arrayBuffer();
-      const audioData = await decodeAndResample(arrayBuffer);
-      const totalDuration = audioData.length / 22050;
+      const { audioData, sampleRate } = await decodeToMono(arrayBuffer);
+      const totalDuration = audioData.length / sampleRate;
 
-      const notes = await audioToNotes(audioData, (p) => setProgress(p));
-
-      if (notes.length === 0) {
-        setErrorMsg("Nggak ada nada yang terdeteksi. Coba audio yang lebih jelas (musik dengan iringan chord yang jelas biasanya lebih akurat dari full mix yang padat).");
-        setStatus("error");
-        return;
-      }
-
-      const windows = buildChromaWindows(notes, totalDuration);
-      const chordSegments = windowsToSegments(windows);
+      const labeled = await extractChords(essentia, audioData, sampleRate, (p) => setProgress(p));
+      const chordSegments = toSegments(labeled, totalDuration).filter((s) => s.chord !== "N.C." || labeled.length < 3);
 
       if (chordSegments.length === 0) {
-        setErrorMsg("Chord nggak berhasil dikenali dari audio ini.");
+        setErrorMsg("Chord nggak berhasil dikenali dari audio ini. Coba audio dengan aransemen chord yang lebih jelas.");
         setStatus("error");
         return;
       }
 
+      setProgress(1);
       setSegments(chordSegments);
       setStatus("ready");
     } catch (err) {
@@ -339,7 +369,7 @@ export default function ChordDetector() {
                 <Loader2 className="w-8 h-8 text-[#3ECF8E] animate-spin" />
                 <div className="text-center w-full max-w-xs">
                   <p className="text-sm font-medium text-white truncate">{file?.name}</p>
-                  <p className="text-xs text-[#8B8F98] mt-1">AI sedang menganalisis chord...</p>
+                  <p className="text-xs text-[#8B8F98] mt-1">Menghitung chroma & mencocokkan chord...</p>
                 </div>
                 <div className="w-full max-w-xs h-1.5 rounded-full bg-white/5 overflow-hidden">
                   <div
@@ -383,9 +413,11 @@ export default function ChordDetector() {
                     {segments.map((s, i) => (
                       <div
                         key={i}
-                        className="shrink-0 flex flex-col items-center justify-center rounded-lg px-4 py-3 min-w-[64px] bg-white/[0.04]"
+                        className={`shrink-0 flex flex-col items-center justify-center rounded-lg px-4 py-3 min-w-[64px] ${
+                          s.chord === "N.C." ? "bg-white/[0.02]" : "bg-white/[0.04]"
+                        }`}
                       >
-                        <span className="text-base font-bold text-[#3ECF8E]">
+                        <span className={`text-base font-bold ${s.chord === "N.C." ? "text-[#5A5D66]" : "text-[#3ECF8E]"}`}>
                           {s.chord}
                         </span>
                         <span className="text-[9px] mt-0.5 text-[#5A5D66]">
@@ -416,7 +448,7 @@ export default function ChordDetector() {
 
                 <p className="text-[11px] text-[#5A5D66] text-center leading-relaxed">
                   Cuma dikenalin sebagai mayor/minor (C, C#m, dst) — nggak termasuk 7th/sus/dim.
-                  Musik dengan aransemen padat (full band) bisa bikin deteksi kurang presisi.
+                  "N.C." artinya bagian hening/tanpa chord jelas.
                 </p>
               </div>
             )}
@@ -425,7 +457,7 @@ export default function ChordDetector() {
 
         <p className="text-center text-[11px] text-[#4A4D54] mt-4 flex items-center justify-center gap-1.5">
           <Music2 className="w-3 h-3" />
-          Ditenagai Basic Pitch (Spotify, Apache-2.0 License) — jalan 100% di browser
+          Ditenagai Essentia.js (MTG-UPF, port WASM dari library Essentia) — jalan 100% di browser
         </p>
       </div>
     </div>
