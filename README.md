@@ -1,33 +1,16 @@
----
-title: Chord Analysis API
-emoji: 🎼
-colorFrom: blue
-colorTo: green
-sdk: docker
-app_port: 7860
-pinned: false
----
+# React + Vite
 
-# Chord Analysis API
+This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
 
-Backend deteksi chord: HPSS → beat-synced chroma CQT → template matching
-(major/minor/dominant7) → Viterbi smoothing.
+Currently, two official plugins are available:
 
-## Endpoint
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
-`POST /analyze` — kirim file audio (`multipart/form-data`, field name `file`).
+## React Compiler
 
-Response:
+The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
 
-```json
-{
-  "duration": 245.3,
-  "tempo": 118.4,
-  "chords": [
-    { "time": 0.51, "chord": "C" },
-    { "time": 4.53, "chord": "G" }
-  ]
-}
-```
+## Expanding the Oxlint configuration
 
-Chord "N" artinya diam / gak ada nada jelas terdeteksi di titik itu.
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
