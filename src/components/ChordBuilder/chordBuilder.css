@@ -155,8 +155,7 @@
   justify-content: center;
   border: 1px solid var(--cb-border);
   border-radius: 12px;
-  cursor: grab;
-  touch-action: none;
+  cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
 }
@@ -199,17 +198,15 @@
 }
 
 .cb-key:active {
-  cursor: grabbing;
   transform: translateY(1px);
 }
 
 /* ---------- Sequence / canvas ---------- */
 .cb-sequence {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-  min-height: 88px;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 60px;
   padding: 10px;
   background: var(--cb-surface-2);
   border: 1px dashed var(--cb-border-dark);
@@ -222,29 +219,55 @@
   padding: 14px 4px;
 }
 
-.cb-chip-slot {
+.cb-chip-order {
   display: flex;
   align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cb-text-dim);
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
 }
 
-.cb-drop-marker {
-  width: 3px;
-  height: 60px;
-  border-radius: 2px;
-  background: var(--cb-accent);
-  margin: 0 3px;
+.cb-chip-move {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.cb-chip-move button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 16px;
+  border: none;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cb-text);
+  cursor: pointer;
+}
+
+.cb-chip-move button:disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
 }
 
 .cb-chip {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+  width: 100%;
   background: #26262b;
   border: 1px solid var(--cb-border-dark);
   border-left: 4px solid var(--cb-accent);
   border-radius: 14px;
   padding: 8px 10px;
-  transition: opacity 0.15s ease;
+  transition: box-shadow 0.15s ease, background 0.15s ease;
 }
 
 .cb-chip-minor {
@@ -277,13 +300,6 @@
 
 .cb-chip-preview:hover {
   color: var(--cb-accent);
-}
-
-.cb-chip-grip {
-  display: flex;
-  color: var(--cb-text-dim);
-  cursor: grab;
-  touch-action: none;
 }
 
 .cb-chip-label {
@@ -428,26 +444,6 @@
   padding: 9px 12px;
   min-width: 0;
   min-height: 0;
-}
-
-/* ---------- Drag ghost ---------- */
-.cb-ghost {
-  position: fixed;
-  transform: translate(-50%, -50%);
-  pointer-events: none;
-  z-index: 50;
-  background: var(--cb-accent);
-  color: #ffffff;
-  font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
-  font-weight: 700;
-  font-size: 15px;
-  padding: 10px 16px;
-  border-radius: 12px;
-  box-shadow: rgba(0, 0, 0, 0.35) 0px 10px 24px 0px;
-}
-
-.cb-ghost-minor {
-  background: var(--cb-accent-minor);
 }
 
 @media (max-width: 480px) {
