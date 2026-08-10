@@ -50,29 +50,49 @@ export async function previewChord(midiNotes, preset = "piano", durationSec = 1.
 
 /**
  * Mainin seluruh progresi berurutan sesuai BPM & durasi tiap chord.
- * onStep(index) dipanggil (approx, via setTimeout) tiap giliran chord baru mulai.
+ * onStep(index) dipanggil tiap giliran chord baru mulai.
  * Return fungsi `stop()` buat batalin sisa jadwal + matiin suara yang lagi nyala.
+ *
+ * PENTING: chord2 berikutnya JANGAN langsung dijadwalin semua ke Tone.js
+ * pakai waktu depan (s.triggerAttackRelease(freqs, dur, futureTime)) --
+ * begitu dipanggil, Web Audio API udah "mengunci" not itu buat bunyi
+ * nanti, dan releaseAll() pas stop nggak bisa membatalkan not yang
+ * belum sempat mulai. Makanya walau timer di-clear, chord berikutnya
+ * tetep kebunyi sendiri. Solusinya: tiap chord baru di-trigger dari
+ * dalem callback setTimeout (waktu "sekarang", bukan waktu depan), jadi
+ * begitu di-stop, chord yang belum gilirannya emang belum pernah
+ * dijadwalin ke audio engine sama sekali.
  */
 export async function playSequence(chords, bpm, preset = "piano", onStep, onDone) {
   const s = await ensureSynth(preset);
   const secondsPerBeat = 60 / bpm;
   const timers = [];
-  let t = Tone.now() + 0.05;
+  let stopped = false;
+  let elapsedMs = 0;
 
   chords.forEach((chord, idx) => {
-    const dur = chord.durationBeats * secondsPerBeat;
-    const freqs = chord.notes.map((n) => Tone.Frequency(n, "midi").toFrequency());
-    s.triggerAttackRelease(freqs, dur * 0.92, t);
-    const delayMs = (t - Tone.now()) * 1000;
-    timers.push(setTimeout(() => onStep?.(idx), Math.max(0, delayMs)));
-    t += dur;
+    const durMs = chord.durationBeats * secondsPerBeat * 1000;
+    timers.push(
+      setTimeout(() => {
+        if (stopped) return;
+        const freqs = chord.notes.map((n) => Tone.Frequency(n, "midi").toFrequency());
+        s.triggerAttackRelease(freqs, (durMs / 1000) * 0.92);
+        onStep?.(idx);
+      }, elapsedMs)
+    );
+    elapsedMs += durMs;
   });
 
-  const totalMs = (t - Tone.now()) * 1000;
-  timers.push(setTimeout(() => onDone?.(), Math.max(0, totalMs)));
+  timers.push(
+    setTimeout(() => {
+      if (!stopped) onDone?.();
+    }, elapsedMs)
+  );
 
   return () => {
+    stopped = true;
     timers.forEach(clearTimeout);
+    // Matiin semua not yang lagi nyala saat ini juga.
     s.releaseAll();
   };
 }

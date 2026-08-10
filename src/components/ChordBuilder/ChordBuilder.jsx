@@ -18,6 +18,8 @@ export default function ChordBuilder() {
   const [quality, setQuality] = useState("major");
   const [octave, setOctave] = useState(4);
   const [bpm, setBpm] = useState(120);
+  const [bpmInput, setBpmInput] = useState("120");
+  const [octaveInput, setOctaveInput] = useState("4");
   const [sequence, setSequence] = useState([]);
   const [songName, setSongName] = useState("");
   const [instrument, setInstrument] = useState("piano"); // "piano" | "synth"
@@ -58,6 +60,29 @@ export default function ChordBuilder() {
           : c
       )
     );
+  };
+
+  // BPM & Oktaf dibiarin ngetik bebas (string) dulu, baru di-clamp pas blur
+  // -- kalau di-clamp tiap keystroke, ngetik "120" kepotong jadi "40" duluan
+  // pas baru ngetik "1" karena langsung dipaksa ke nilai minimum.
+  const handleBpmChange = (val) => {
+    if (/^\d*$/.test(val)) setBpmInput(val);
+  };
+
+  const commitBpm = () => {
+    const n = Math.min(300, Math.max(40, Number(bpmInput) || 120));
+    setBpm(n);
+    setBpmInput(String(n));
+  };
+
+  const handleOctaveChange = (val) => {
+    if (/^\d*$/.test(val)) setOctaveInput(val);
+  };
+
+  const commitOctave = () => {
+    const n = Math.min(6, Math.max(2, Number(octaveInput) || 4));
+    setOctave(n);
+    setOctaveInput(String(n));
   };
 
   const stopPlayback = useCallback(() => {
@@ -257,8 +282,9 @@ export default function ChordBuilder() {
               className="cb-input cb-input-num"
               min={40}
               max={300}
-              value={bpm}
-              onChange={(e) => setBpm(Math.min(300, Math.max(40, Number(e.target.value) || 120)))}
+              value={bpmInput}
+              onChange={(e) => handleBpmChange(e.target.value)}
+              onBlur={commitBpm}
             />
           </label>
           <label className="cb-field">
@@ -268,8 +294,9 @@ export default function ChordBuilder() {
               className="cb-input cb-input-num"
               min={2}
               max={6}
-              value={octave}
-              onChange={(e) => setOctave(Math.min(6, Math.max(2, Number(e.target.value) || 4)))}
+              value={octaveInput}
+              onChange={(e) => handleOctaveChange(e.target.value)}
+              onBlur={commitOctave}
             />
           </label>
         </div>

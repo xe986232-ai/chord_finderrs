@@ -264,14 +264,9 @@
   width: 100%;
   background: #26262b;
   border: 1px solid var(--cb-border-dark);
-  border-left: 4px solid var(--cb-accent);
   border-radius: 14px;
   padding: 8px 10px;
   transition: box-shadow 0.15s ease, background 0.15s ease;
-}
-
-.cb-chip-minor {
-  border-left-color: var(--cb-accent-minor);
 }
 
 .cb-chip.is-dragging {
@@ -281,10 +276,6 @@
 .cb-chip.is-playing {
   box-shadow: 0 0 0 1.5px var(--cb-accent);
   background: #2a2f3a;
-}
-
-.cb-chip-minor.is-playing {
-  box-shadow: 0 0 0 1.5px var(--cb-accent-minor);
 }
 
 .cb-chip-preview {
