@@ -9,9 +9,9 @@
   --cb-border: #dde7f1;
   --cb-border-dark: rgba(255, 255, 255, 0.09);
 
-  max-width: 780px;
+  max-width: 720px;
   margin: 0 auto;
-  padding: 26px 18px 60px;
+  padding: 18px 14px 44px;
   color: var(--cb-text);
   font-family: "Poppins", sans-serif;
 }
@@ -21,33 +21,37 @@
 }
 
 /* ---------- Header ---------- */
+.cb-header {
+  margin-bottom: 16px;
+}
+
 .cb-eyebrow {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   color: var(--cb-accent);
   font-family: "Poppins", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .cb-h1 {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
-  font-size: 32px;
+  font-size: 22px;
   font-weight: 700;
-  line-height: 38px;
-  margin: 0 0 10px;
+  line-height: 28px;
+  margin: 0 0 4px;
 }
 
 .cb-lead {
   font-family: "Poppins", sans-serif;
-  font-size: 16px;
-  line-height: 24.64px;
+  font-size: 13px;
+  line-height: 19px;
   color: var(--cb-text-dim);
-  margin: 0 0 26px;
+  margin: 0;
   max-width: 56ch;
 }
 
@@ -55,24 +59,24 @@
 .cb-panel {
   background: var(--cb-surface);
   border: 1px solid var(--cb-border-dark);
-  border-radius: 22px;
-  padding: 18px;
-  margin-bottom: 18px;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
 }
 
 .cb-panel-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 14px;
+  gap: 8px;
+  margin-bottom: 10px;
   flex-wrap: wrap;
 }
 
 .cb-panel-head-controls {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
@@ -83,24 +87,24 @@
 
 .cb-h2 {
   font-family: "Inter", sans-serif;
-  font-size: 20px;
-  font-weight: 500;
-  line-height: 26px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 18px;
   margin: 0;
 }
 
 .cb-hint {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--cb-text-dim);
-  margin: 10px 2px 0;
+  margin: 8px 2px 0;
 }
 
 /* ---------- Quality toggle ---------- */
 .cb-quality-toggle {
   display: inline-flex;
   background: var(--cb-surface-2);
-  border-radius: 15px;
-  padding: 3px;
+  border-radius: 12px;
+  padding: 2px;
   gap: 2px;
 }
 
@@ -109,10 +113,10 @@
   background: transparent;
   color: var(--cb-text-dim);
   font-family: "Poppins", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 9px 16px;
-  border-radius: 12px;
+  padding: 7px 12px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 0.15s ease, color 0.15s ease;
 }
@@ -139,24 +143,24 @@
 .cb-inline-group {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
 }
 
 .cb-pattern-select {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   appearance: none;
   -webkit-appearance: none;
   background: var(--cb-surface-2);
   border: 1px solid var(--cb-border-dark);
-  border-radius: 15px;
+  border-radius: 12px;
   color: var(--cb-text);
   font-family: "Poppins", sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   font-weight: 500;
-  padding: 9px 14px;
+  padding: 7px 11px;
   cursor: pointer;
 }
 
@@ -187,11 +191,11 @@
   display: flex;
   flex-direction: column;
   gap: 2px;
-  min-width: 220px;
+  min-width: 200px;
   background: var(--cb-surface-2);
   border: 1px solid var(--cb-border-dark);
-  border-radius: 14px;
-  padding: 6px;
+  border-radius: 12px;
+  padding: 5px;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
 }
 
@@ -199,13 +203,13 @@
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 2px;
+  gap: 1px;
   width: 100%;
   text-align: left;
   background: transparent;
   border: none;
-  border-radius: 9px;
-  padding: 8px 10px;
+  border-radius: 8px;
+  padding: 7px 9px;
   cursor: pointer;
   color: var(--cb-text);
 }
@@ -220,30 +224,30 @@
 
 .cb-pattern-option-label {
   font-family: "Poppins", sans-serif;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
 }
 
 .cb-pattern-option-desc {
   font-family: "Poppins", sans-serif;
-  font-size: 11px;
+  font-size: 10px;
   color: var(--cb-text-dim);
-  line-height: 1.4;
+  line-height: 1.35;
 }
 
 /* ---------- Piano keys ---------- */
 .cb-piano {
   display: flex;
-  gap: 4px;
+  gap: 3px;
   overflow-x: auto;
-  padding: 6px 2px 14px;
+  padding: 4px 2px 10px;
   -webkit-overflow-scrolling: touch;
 }
 
 .cb-piano-slot {
   position: relative;
   flex: 0 0 auto;
-  width: 56px;
+  width: 48px;
 }
 
 .cb-key {
@@ -251,33 +255,33 @@
   align-items: flex-end;
   justify-content: center;
   border: 1px solid var(--cb-border);
-  border-radius: 12px;
+  border-radius: 10px;
   cursor: pointer;
   user-select: none;
   -webkit-user-select: none;
 }
 
 .cb-key-white {
-  width: 56px;
-  height: 108px;
+  width: 48px;
+  height: 92px;
   background: #ffffff;
   color: #111318;
-  padding-bottom: 12px;
-  box-shadow: rgba(15, 35, 55, 0.15) 0px 8px 16px 0px;
+  padding-bottom: 10px;
+  box-shadow: rgba(15, 35, 55, 0.15) 0px 6px 14px 0px;
 }
 
 .cb-key-black {
   position: absolute;
   top: 0;
-  right: -19px;
-  width: 38px;
-  height: 66px;
+  right: -16px;
+  width: 32px;
+  height: 56px;
   background: #1c1c20;
   color: #ffffff;
   border-color: rgba(255, 255, 255, 0.16);
-  padding-bottom: 10px;
+  padding-bottom: 8px;
   z-index: 2;
-  box-shadow: rgba(0, 0, 0, 0.35) 0px 10px 18px 0px;
+  box-shadow: rgba(0, 0, 0, 0.35) 0px 8px 16px 0px;
 }
 
 .cb-key-white.cb-key-minor {
@@ -290,7 +294,7 @@
 
 .cb-key-label {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
 }
 
@@ -298,34 +302,36 @@
   transform: translateY(1px);
 }
 
-/* ---------- Sequence / canvas ---------- */
+/* ---------- Sequence ---------- */
+/* Pill compact yang WRAP (bukan satu kolom penuh selebar panel) -- biar
+   progresi panjang tetap ringkas, nggak makan tinggi halaman percuma. */
 .cb-sequence {
   display: flex;
-  flex-direction: column;
+  flex-wrap: wrap;
   gap: 6px;
-  min-height: 60px;
-  padding: 10px;
+  min-height: 48px;
+  padding: 8px;
   background: var(--cb-surface-2);
   border: 1px dashed var(--cb-border-dark);
-  border-radius: 16px;
+  border-radius: 14px;
 }
 
 .cb-empty {
   color: var(--cb-text-dim);
-  font-size: 14px;
-  padding: 14px 4px;
+  font-size: 13px;
+  padding: 12px 4px;
 }
 
 .cb-chip-order {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 20px;
+  width: 16px;
+  height: 16px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.08);
   color: var(--cb-text-dim);
-  font-size: 11px;
+  font-size: 9px;
   font-weight: 600;
   flex-shrink: 0;
 }
@@ -340,8 +346,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 20px;
-  height: 16px;
+  width: 16px;
+  height: 13px;
   border: none;
   border-radius: 4px;
   background: rgba(255, 255, 255, 0.08);
@@ -357,12 +363,13 @@
 .cb-chip {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
+  gap: 6px;
+  width: auto;
+  flex: 0 0 auto;
   background: #26262b;
   border: 1px solid var(--cb-border-dark);
-  border-radius: 14px;
-  padding: 8px 10px;
+  border-radius: 12px;
+  padding: 6px 8px;
   transition: box-shadow 0.15s ease, background 0.15s ease;
 }
 
@@ -393,20 +400,20 @@
 .cb-chip-label {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
   font-weight: 700;
-  font-size: 16px;
-  min-width: 30px;
+  font-size: 14px;
+  min-width: 24px;
 }
 
 .cb-chip-pattern {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border-radius: 5px;
   background: rgba(34, 197, 94, 0.16);
   color: #4ade80;
-  font-size: 10px;
+  font-size: 9px;
   font-weight: 700;
   flex-shrink: 0;
   cursor: default;
@@ -415,11 +422,11 @@
 .cb-chip-duration {
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 3px;
   background: rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
-  padding: 2px 4px;
-  font-size: 11px;
+  border-radius: 7px;
+  padding: 2px 3px;
+  font-size: 10px;
   color: var(--cb-text-dim);
 }
 
@@ -427,8 +434,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   border: none;
   border-radius: 5px;
   background: rgba(255, 255, 255, 0.08);
@@ -437,7 +444,7 @@
 }
 
 .cb-chip-duration span {
-  width: 14px;
+  width: 12px;
   text-align: center;
 }
 
@@ -455,21 +462,21 @@
 }
 
 /* ---------- Diagram chord (gitar / piano) ---------- */
-/* Carousel: satu chord ditampilin per waktu, gantian sendiri (idle) atau
-   ngikutin playback -- geser pakai transform translateX di .cb-diagram-track,
-   jadi transisinya SELALU ke arah yang sama (slide ke kiri) pas index naik. */
+/* SENGAJA polos -- nggak ada background/border kayak card di sekitar
+   diagram-nya, biar chord-nya "nempel" langsung di permukaan panel, bukan
+   numpuk kotak di dalam kotak. Satu chord ditampilin per waktu, gantian
+   sendiri (idle) atau ngikutin playback -- geser pakai transform
+   translateX di .cb-diagram-track, jadi arah transisinya selalu sama
+   (slide ke kiri) pas index naik. */
 .cb-diagram-carousel {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
 }
 
 .cb-diagram-viewport {
   flex: 1 1 auto;
   overflow: hidden;
-  border-radius: 16px;
-  background: var(--cb-surface-2);
-  border: 1px solid var(--cb-border-dark);
 }
 
 .cb-diagram-track {
@@ -486,33 +493,25 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 24px 16px 18px;
-}
-
-.cb-diagram-slide.is-playing {
-  box-shadow: inset 0 0 0 1.5px var(--cb-accent);
-  border-radius: 16px;
+  gap: 6px;
+  padding: 10px 8px 6px;
 }
 
 .cb-diagram-slide-index {
   position: absolute;
-  top: 10px;
-  left: 12px;
+  top: 0;
+  left: 4px;
   font-family: "Poppins", sans-serif;
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.02em;
   color: var(--cb-text-dim);
-  background: rgba(255, 255, 255, 0.06);
-  padding: 3px 9px;
-  border-radius: 999px;
 }
 
 .cb-diagram-card-label {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
   font-weight: 700;
-  font-size: 15px;
+  font-size: 14px;
 }
 
 .cb-diagram-slide.is-playing .cb-diagram-card-label {
@@ -524,23 +523,23 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 34px;
-  height: 34px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
-  border: 1px solid var(--cb-border-dark);
-  background: var(--cb-surface-2);
-  color: var(--cb-text);
+  border: none;
+  background: transparent;
+  color: var(--cb-text-dim);
   cursor: pointer;
-  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
 }
 
 .cb-diagram-nav:hover:not(:disabled) {
-  border-color: var(--cb-accent);
   color: var(--cb-accent);
+  background: rgba(255, 255, 255, 0.05);
 }
 
 .cb-diagram-nav:disabled {
-  opacity: 0.3;
+  opacity: 0.25;
   cursor: not-allowed;
 }
 
@@ -548,13 +547,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  margin-top: 12px;
+  gap: 5px;
+  margin-top: 8px;
 }
 
 .cb-diagram-dot-btn {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   padding: 0;
   border: none;
   border-radius: 50%;
@@ -564,15 +563,15 @@
 }
 
 .cb-diagram-dot-btn.is-active {
-  width: 18px;
+  width: 16px;
   border-radius: 3px;
   background: var(--cb-accent);
 }
 
 /* -- Gitar (SVG fretboard) -- */
 .cb-diagram-svg {
-  width: 78px;
-  height: 92px;
+  width: 72px;
+  height: 84px;
 }
 
 .cb-diagram-nut {
@@ -616,26 +615,26 @@
 /* -- Piano (mini keyboard) -- */
 .cb-diagram-piano {
   display: flex;
-  height: 72px;
+  height: 64px;
 }
 
 .cb-diagram-piano-slot {
   position: relative;
   flex: 0 0 auto;
-  width: 20px;
+  width: 18px;
 }
 
 .cb-diagram-key {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 6px;
+  padding-bottom: 5px;
   border: 1px solid rgba(0, 0, 0, 0.25);
 }
 
 .cb-diagram-key-white {
-  width: 20px;
-  height: 72px;
+  width: 18px;
+  height: 64px;
   background: #e9e9ee;
   border-radius: 0 0 4px 4px;
 }
@@ -651,9 +650,9 @@
 .cb-diagram-key-black {
   position: absolute;
   top: 0;
-  right: -8px;
-  width: 14px;
-  height: 44px;
+  right: -7px;
+  width: 12px;
+  height: 40px;
   background: #1c1c20;
   border-radius: 0 0 3px 3px;
   z-index: 2;
@@ -668,8 +667,8 @@
 }
 
 .cb-diagram-key-dot {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
   border-radius: 50%;
   background: #ffffff;
   margin-bottom: 2px;
@@ -681,41 +680,41 @@
   flex-wrap: wrap;
   align-items: flex-end;
   justify-content: space-between;
-  gap: 16px;
+  gap: 12px;
 }
 
 .cb-export-fields {
   display: flex;
   flex-wrap: wrap;
-  gap: 14px;
-  flex: 1 1 320px;
+  gap: 10px;
+  flex: 1 1 300px;
 }
 
 .cb-field {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 5px;
 }
 
 .cb-field-label {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--cb-text-dim);
 }
 
 .cb-input {
   background: var(--cb-surface-2);
   border: 1px solid var(--cb-border-dark);
-  border-radius: 10px;
-  padding: 10px 12px;
+  border-radius: 9px;
+  padding: 8px 10px;
   color: var(--cb-text);
   font-family: "Poppins", sans-serif;
-  font-size: 14px;
-  min-width: 150px;
+  font-size: 13px;
+  min-width: 140px;
 }
 
 .cb-input-num {
-  min-width: 80px;
+  min-width: 70px;
 }
 
 .cb-input:focus-visible {
@@ -728,17 +727,17 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
+  gap: 7px;
   box-sizing: border-box;
-  border-radius: 15px;
-  padding: 16px 18px;
+  border-radius: 13px;
+  padding: 13px 16px;
   font-size: 12px;
   font-weight: 500;
   font-family: "Poppins", sans-serif;
   text-decoration: none;
   cursor: pointer;
-  min-width: 94px;
-  min-height: 43px;
+  min-width: 88px;
+  min-height: 38px;
 }
 
 .cb-btn-primary {
@@ -756,7 +755,7 @@
   background: transparent;
   color: #ffffff;
   border: 1px solid #ffffff;
-  border-radius: 4px;
+  border-radius: 10px;
 }
 
 .cb-btn-secondary:disabled {
@@ -765,15 +764,15 @@
 }
 
 .cb-btn-sm {
-  padding: 9px 12px;
+  padding: 8px 11px;
   min-width: 0;
   min-height: 0;
 }
 
 @media (max-width: 480px) {
   .cb-h1 {
-    font-size: 26px;
-    line-height: 32px;
+    font-size: 20px;
+    line-height: 26px;
   }
 
   .cb-export {
