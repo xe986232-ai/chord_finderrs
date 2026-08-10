@@ -69,6 +69,18 @@
   flex-wrap: wrap;
 }
 
+.cb-panel-head-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.cb-btn-secondary.is-playing {
+  border-color: var(--cb-accent);
+  color: var(--cb-accent);
+}
+
 .cb-h2 {
   font-family: "Inter", sans-serif;
   font-size: 20px;
@@ -113,6 +125,13 @@
 .cb-quality-btn.is-active.cb-quality-minor {
   background: var(--cb-accent-minor);
   color: #ffffff;
+}
+
+.cb-quality-btn.is-active.cb-instrument-piano,
+.cb-quality-btn.is-active.cb-instrument-synth {
+  background: var(--cb-surface);
+  color: var(--cb-text);
+  box-shadow: inset 0 0 0 1px var(--cb-border-dark);
 }
 
 /* ---------- Piano keys ---------- */
@@ -234,6 +253,30 @@
 
 .cb-chip.is-dragging {
   opacity: 0.35;
+}
+
+.cb-chip.is-playing {
+  box-shadow: 0 0 0 1.5px var(--cb-accent);
+  background: #2a2f3a;
+}
+
+.cb-chip-minor.is-playing {
+  box-shadow: 0 0 0 1.5px var(--cb-accent-minor);
+}
+
+.cb-chip-preview {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--cb-text-dim);
+  cursor: pointer;
+  padding: 2px;
+}
+
+.cb-chip-preview:hover {
+  color: var(--cb-accent);
 }
 
 .cb-chip-grip {

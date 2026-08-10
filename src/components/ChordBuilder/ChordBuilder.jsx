@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { GripVertical, X, Minus, Plus, Download, Trash2, Music } from "lucide-react";
+import { GripVertical, X, Minus, Plus, Download, Trash2, Music, Play, Square, Volume2 } from "lucide-react";
 import {
   NATURAL_NOTES,
   SHARP_NOTES,
@@ -9,6 +9,7 @@ import {
   makeId,
 } from "./chordUtils";
 import { downloadMidi } from "./midiWriter";
+import { previewChord, playSequence } from "./audioEngine";
 import "./chordBuilder.css";
 
 const DRAG_THRESHOLD = 6; // px -- di bawah ini dianggap tap, bukan drag
@@ -34,20 +35,27 @@ export default function ChordBuilder() {
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const [hoverIndex, setHoverIndex] = useState(null);
   const [songName, setSongName] = useState("");
+  const [instrument, setInstrument] = useState("piano"); // "piano" | "synth"
+  const [playingIndex, setPlayingIndex] = useState(null);
+  const stopPlaybackRef = useRef(null);
 
   const sequenceRef = useRef(null);
   const startPos = useRef({ x: 0, y: 0 });
   const movedRef = useRef(false);
 
-  const addChord = useCallback((root, q, index) => {
-    setSequence((prev) => {
-      const next = [...prev];
-      const item = { id: makeId(), root, quality: q, durationBeats: DEFAULT_DURATION };
-      const at = index == null ? next.length : index;
-      next.splice(at, 0, item);
-      return next;
-    });
-  }, []);
+  const addChord = useCallback(
+    (root, q, index) => {
+      previewChord(chordToMidiNotes(root, q, octave), instrument);
+      setSequence((prev) => {
+        const next = [...prev];
+        const item = { id: makeId(), root, quality: q, durationBeats: DEFAULT_DURATION };
+        const at = index == null ? next.length : index;
+        next.splice(at, 0, item);
+        return next;
+      });
+    },
+    [octave, instrument]
+  );
 
   const finishDrag = useCallback(
     (clientX) => {
@@ -137,7 +145,37 @@ export default function ChordBuilder() {
     );
   };
 
-  const clearAll = () => setSequence([]);
+  const clearAll = () => {
+    stopPlaybackRef.current?.();
+    setSequence([]);
+  };
+
+  const stopPlayback = useCallback(() => {
+    stopPlaybackRef.current?.();
+    stopPlaybackRef.current = null;
+    setPlayingIndex(null);
+  }, []);
+
+  const handlePlaySequence = async () => {
+    if (playingIndex !== null) {
+      stopPlayback();
+      return;
+    }
+    if (sequence.length === 0) return;
+    const chords = sequence.map((c) => ({
+      notes: chordToMidiNotes(c.root, c.quality, octave),
+      durationBeats: c.durationBeats,
+    }));
+    const stop = await playSequence(chords, bpm, instrument, setPlayingIndex, stopPlayback);
+    stopPlaybackRef.current = stop;
+  };
+
+  const handlePreviewChip = (c) => {
+    previewChord(chordToMidiNotes(c.root, c.quality, octave), instrument);
+  };
+
+  // Matiin suara & timer kalau pindah tab / komponen unmount
+  useEffect(() => stopPlayback, [stopPlayback]);
 
   const handleDownload = () => {
     if (sequence.length === 0) return;
@@ -163,25 +201,40 @@ export default function ChordBuilder() {
         </div>
         <h1 className="cb-h1">Susun progresi, download .midi</h1>
         <p className="cb-lead">
-          Ketuk atau seret kunci ke bawah buat nyusun progresi. Nggak ada AI, nggak
-          ada server &mdash; murni disusun manual, tapi cepet dipake langsung di DAW.
+          Ketuk atau seret kunci ke bawah buat nyusun progresi &mdash; tiap kunci
+          langsung kedengeran (Piano/Synth). Nggak ada AI, nggak ada server, murni
+          disusun manual, tapi cepet dipake langsung di DAW.
         </p>
       </header>
 
       <section className="cb-panel">
         <div className="cb-panel-head">
           <h2 className="cb-h2">Pilih kunci</h2>
-          <div className="cb-quality-toggle" role="group" aria-label="Jenis chord">
-            {Object.entries(QUALITIES).map(([key, q]) => (
-              <button
-                key={key}
-                type="button"
-                className={`cb-quality-btn cb-quality-${key} ${quality === key ? "is-active" : ""}`}
-                onClick={() => setQuality(key)}
-              >
-                {q.label}
-              </button>
-            ))}
+          <div className="cb-panel-head-controls">
+            <div className="cb-quality-toggle" role="group" aria-label="Suara preview">
+              {["piano", "synth"].map((name) => (
+                <button
+                  key={name}
+                  type="button"
+                  className={`cb-quality-btn cb-instrument-${name} ${instrument === name ? "is-active" : ""}`}
+                  onClick={() => setInstrument(name)}
+                >
+                  {name === "piano" ? "Piano" : "Synth"}
+                </button>
+              ))}
+            </div>
+            <div className="cb-quality-toggle" role="group" aria-label="Jenis chord">
+              {Object.entries(QUALITIES).map(([key, q]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`cb-quality-btn cb-quality-${key} ${quality === key ? "is-active" : ""}`}
+                  onClick={() => setQuality(key)}
+                >
+                  {q.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -215,10 +268,21 @@ export default function ChordBuilder() {
       <section className="cb-panel">
         <div className="cb-panel-head">
           <h2 className="cb-h2">Progresi kamu</h2>
-          <button type="button" className="cb-btn cb-btn-secondary cb-btn-sm" onClick={clearAll} disabled={sequence.length === 0}>
-            <Trash2 size={14} />
-            Bersihin
-          </button>
+          <div className="cb-panel-head-controls">
+            <button
+              type="button"
+              className={`cb-btn cb-btn-secondary cb-btn-sm ${playingIndex !== null ? "is-playing" : ""}`}
+              onClick={handlePlaySequence}
+              disabled={sequence.length === 0}
+            >
+              {playingIndex !== null ? <Square size={14} /> : <Play size={14} />}
+              {playingIndex !== null ? "Stop" : "Play"}
+            </button>
+            <button type="button" className="cb-btn cb-btn-secondary cb-btn-sm" onClick={clearAll} disabled={sequence.length === 0}>
+              <Trash2 size={14} />
+              Bersihin
+            </button>
+          </div>
         </div>
 
         <div className="cb-sequence" ref={sequenceRef}>
@@ -230,7 +294,7 @@ export default function ChordBuilder() {
               {hoverIndex === idx && drag && <span className="cb-drop-marker" />}
               <div
                 data-chip
-                className={`cb-chip cb-chip-${c.quality} ${drag?.kind === "move" && drag.id === c.id ? "is-dragging" : ""}`}
+                className={`cb-chip cb-chip-${c.quality} ${drag?.kind === "move" && drag.id === c.id ? "is-dragging" : ""} ${playingIndex === idx ? "is-playing" : ""}`}
               >
                 <span
                   className="cb-chip-grip"
@@ -240,6 +304,14 @@ export default function ChordBuilder() {
                 >
                   <GripVertical size={15} />
                 </span>
+                <button
+                  type="button"
+                  className="cb-chip-preview"
+                  onClick={() => handlePreviewChip(c)}
+                  aria-label="Preview suara chord ini"
+                >
+                  <Volume2 size={13} />
+                </button>
                 <span className="cb-chip-label">{chordLabel(c.root, c.quality)}</span>
                 <div className="cb-chip-duration">
                   <button type="button" onClick={() => changeDuration(c.id, -1)} aria-label="Kurangi durasi">
