@@ -9,6 +9,7 @@ import {
   makeId,
 } from "./chordUtils";
 import { PATTERNS } from "./patterns";
+import ChordDiagram from "./ChordDiagram";
 import { downloadMidi } from "./midiWriter";
 import { previewChord, playSequence } from "./audioEngine";
 import "./chordBuilder.css";
@@ -27,6 +28,7 @@ export default function ChordBuilder() {
   const [sequence, setSequence] = useState([]);
   const [songName, setSongName] = useState("");
   const [instrument, setInstrument] = useState("piano"); // "piano" | "synth"
+  const [diagramView, setDiagramView] = useState("guitar"); // "guitar" | "piano"
   const [playingIndex, setPlayingIndex] = useState(null);
   const stopPlaybackRef = useRef(null);
 
@@ -317,6 +319,41 @@ export default function ChordBuilder() {
             </div>
           ))}
         </div>
+      </section>
+
+      <section className="cb-panel">
+        <div className="cb-panel-head">
+          <h2 className="cb-h2">Diagram chord</h2>
+          <div className="cb-quality-toggle" role="group" aria-label="Tampilan diagram">
+            {[
+              { key: "guitar", label: "Gitar" },
+              { key: "piano", label: "Piano" },
+            ].map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`cb-quality-btn ${diagramView === opt.key ? "is-active" : ""}`}
+                onClick={() => setDiagramView(opt.key)}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {sequence.length === 0 ? (
+          <div className="cb-empty">Diagram bakal nongol di sini abis kamu nambah chord.</div>
+        ) : (
+          <div className="cb-diagram-strip">
+            {sequence.map((c, idx) => (
+              <div key={c.id} className={`cb-diagram-card ${playingIndex === idx ? "is-playing" : ""}`}>
+                <span className="cb-diagram-card-order">{idx + 1}</span>
+                <ChordDiagram root={c.root} quality={c.quality} view={diagramView} />
+                <span className="cb-diagram-card-label">{chordLabel(c.root, c.quality)}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="cb-panel cb-export">

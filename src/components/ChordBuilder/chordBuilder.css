@@ -454,6 +454,161 @@
   color: #ff6b6b;
 }
 
+/* ---------- Diagram chord (gitar / piano) ---------- */
+.cb-diagram-strip {
+  display: flex;
+  gap: 10px;
+  overflow-x: auto;
+  padding: 4px 2px 8px;
+  -webkit-overflow-scrolling: touch;
+}
+
+.cb-diagram-card {
+  position: relative;
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-border-dark);
+  border-radius: 14px;
+  padding: 10px 12px 8px;
+  transition: box-shadow 0.15s ease;
+}
+
+.cb-diagram-card.is-playing {
+  box-shadow: 0 0 0 1.5px var(--cb-accent);
+}
+
+.cb-diagram-card-order {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--cb-text-dim);
+  font-size: 9px;
+  font-weight: 600;
+}
+
+.cb-diagram-card-label {
+  font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+}
+
+/* -- Gitar (SVG fretboard) -- */
+.cb-diagram-svg {
+  width: 78px;
+  height: 92px;
+}
+
+.cb-diagram-nut {
+  fill: var(--cb-text);
+}
+
+.cb-diagram-fretline {
+  stroke: var(--cb-border-dark);
+  stroke-width: 1;
+}
+
+.cb-diagram-string {
+  stroke: rgba(255, 255, 255, 0.35);
+  stroke-width: 1;
+}
+
+.cb-diagram-fret-label {
+  fill: var(--cb-text-dim);
+  font-size: 8px;
+  font-family: "Poppins", sans-serif;
+}
+
+.cb-diagram-open {
+  fill: none;
+  stroke: var(--cb-text);
+  stroke-width: 1.5;
+}
+
+.cb-diagram-dot {
+  fill: var(--cb-accent);
+}
+
+.cb-diagram-finger {
+  fill: #ffffff;
+  font-size: 8px;
+  font-weight: 700;
+  text-anchor: middle;
+  font-family: "Poppins", sans-serif;
+}
+
+/* -- Piano (mini keyboard) -- */
+.cb-diagram-piano {
+  display: flex;
+  height: 72px;
+}
+
+.cb-diagram-piano-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 20px;
+}
+
+.cb-diagram-key {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 6px;
+  border: 1px solid rgba(0, 0, 0, 0.25);
+}
+
+.cb-diagram-key-white {
+  width: 20px;
+  height: 72px;
+  background: #e9e9ee;
+  border-radius: 0 0 4px 4px;
+}
+
+.cb-diagram-key-white.is-on {
+  background: #cfe4ff;
+}
+
+.cb-diagram-key-white.is-root {
+  background: var(--cb-accent);
+}
+
+.cb-diagram-key-black {
+  position: absolute;
+  top: 0;
+  right: -8px;
+  width: 14px;
+  height: 44px;
+  background: #1c1c20;
+  border-radius: 0 0 3px 3px;
+  z-index: 2;
+}
+
+.cb-diagram-key-black.is-on {
+  background: #3f6fb0;
+}
+
+.cb-diagram-key-black.is-root {
+  background: var(--cb-accent-minor);
+}
+
+.cb-diagram-key-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #ffffff;
+  margin-bottom: 2px;
+}
+
 /* ---------- Export ---------- */
 .cb-export {
   display: flex;
