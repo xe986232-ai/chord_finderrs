@@ -163,30 +163,32 @@ export default function ChordBuilder() {
                 </button>
               ))}
             </div>
-            <div className="cb-quality-toggle" role="group" aria-label="Jenis chord">
-              {Object.entries(QUALITIES).map(([key, q]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`cb-quality-btn cb-quality-${key} ${quality === key ? "is-active" : ""}`}
-                  onClick={() => setQuality(key)}
-                >
-                  {q.label}
-                </button>
-              ))}
-            </div>
-            <div className="cb-quality-toggle" role="group" aria-label="Pola chord">
-              {Object.entries(PATTERNS).map(([key, p]) => (
-                <button
-                  key={key}
-                  type="button"
-                  className={`cb-quality-btn cb-pattern-btn ${pattern === key ? "is-active" : ""}`}
-                  onClick={() => setPattern(key)}
-                  title={p.description}
-                >
-                  {p.label}
-                </button>
-              ))}
+            <div className="cb-inline-group">
+              <div className="cb-quality-toggle" role="group" aria-label="Jenis chord">
+                {Object.entries(QUALITIES).map(([key, q]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={`cb-quality-btn cb-quality-${key} ${quality === key ? "is-active" : ""}`}
+                    onClick={() => setQuality(key)}
+                  >
+                    {q.label}
+                  </button>
+                ))}
+              </div>
+              <select
+                className="cb-pattern-select"
+                value={pattern}
+                onChange={(e) => setPattern(e.target.value)}
+                aria-label="Pola susunan chord"
+                title={PATTERNS[pattern]?.description}
+              >
+                {Object.entries(PATTERNS).map(([key, p]) => (
+                  <option key={key} value={key}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         </div>
