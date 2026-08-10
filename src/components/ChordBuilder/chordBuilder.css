@@ -134,6 +134,11 @@
   box-shadow: inset 0 0 0 1px var(--cb-border-dark);
 }
 
+.cb-quality-btn.is-active.cb-pattern-btn {
+  background: #22c55e;
+  color: #ffffff;
+}
+
 /* ---------- Piano keys ---------- */
 .cb-piano {
   display: flex;
@@ -298,6 +303,21 @@
   font-weight: 700;
   font-size: 16px;
   min-width: 30px;
+}
+
+.cb-chip-pattern {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  background: rgba(34, 197, 94, 0.16);
+  color: #4ade80;
+  font-size: 10px;
+  font-weight: 700;
+  flex-shrink: 0;
+  cursor: default;
 }
 
 .cb-chip-duration {

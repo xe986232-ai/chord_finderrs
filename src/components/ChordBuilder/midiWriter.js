@@ -10,6 +10,8 @@
  * variable-length quantity (VLQ) sesuai spek MIDI 1.0.
  */
 
+import { getChordHits } from "./patterns";
+
 const TICKS_PER_BEAT = 480;
 
 function writeVarLen(value) {
@@ -44,8 +46,9 @@ function stringBytes(str) {
 }
 
 /**
- * @param {Array<{notes:number[], durationBeats:number}>} chords urutan chord,
- *   tiap elemen berisi daftar nomor MIDI note & durasinya dalam satuan beat (ketukan).
+ * @param {Array<{notes:number[], durationBeats:number, pattern?:string}>} chords
+ *   urutan chord, tiap elemen berisi daftar nomor MIDI note, durasinya dalam
+ *   satuan beat (ketukan), dan pola pemutarannya ("sustain" default | "rhythm").
  * @param {number} bpm tempo lagu.
  * @returns {Uint8Array} isi file .mid siap didownload.
  */
@@ -55,14 +58,18 @@ export function buildMidiFile(chords, bpm = 120) {
   let cursorTicks = 0;
 
   for (const chord of chords) {
-    const durationTicks = Math.round(chord.durationBeats * TICKS_PER_BEAT);
-    for (const note of chord.notes) {
-      events.push({ time: cursorTicks, type: "on", note });
+    const hits = getChordHits(chord.durationBeats, chord.pattern);
+    for (const hit of hits) {
+      const onTick = Math.round(cursorTicks + hit.offsetBeats * TICKS_PER_BEAT);
+      const offTick = Math.round(onTick + hit.lengthBeats * TICKS_PER_BEAT);
+      for (const note of chord.notes) {
+        events.push({ time: onTick, type: "on", note });
+      }
+      for (const note of chord.notes) {
+        events.push({ time: offTick, type: "off", note });
+      }
     }
-    for (const note of chord.notes) {
-      events.push({ time: cursorTicks + durationTicks, type: "off", note });
-    }
-    cursorTicks += durationTicks;
+    cursorTicks += Math.round(chord.durationBeats * TICKS_PER_BEAT);
   }
 
   // Urutin berdasarkan waktu; kalau waktu sama, note-off duluan baru note-on

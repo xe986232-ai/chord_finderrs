@@ -1,4 +1,5 @@
 import * as Tone from "tone";
+import { getChordHits } from "./patterns";
 
 /**
  * audioEngine
@@ -42,9 +43,16 @@ async function ensureSynth(preset) {
 }
 
 /** Preview satu chord (dipanggil pas tap/drop kunci, atau tombol play per-chip). */
-export async function previewChord(midiNotes, preset = "piano", durationSec = 1.1) {
+export async function previewChord(midiNotes, preset = "piano", pattern = "sustain", durationSec = 1.1) {
   const s = await ensureSynth(preset);
   const freqs = midiNotes.map((n) => Tone.Frequency(n, "midi").toFrequency());
+  if (pattern === "rhythm") {
+    // Preview pola ritme: mainin 2 hit staccato singkat biar kerasa "gaya"-nya
+    // tanpa nunggu lama tiap klik kunci.
+    s.triggerAttackRelease(freqs, 0.12);
+    setTimeout(() => s.triggerAttackRelease(freqs, 0.12), 220);
+    return;
+  }
   s.triggerAttackRelease(freqs, durationSec);
 }
 
@@ -62,6 +70,10 @@ export async function previewChord(midiNotes, preset = "piano", durationSec = 1.
  * dalem callback setTimeout (waktu "sekarang", bukan waktu depan), jadi
  * begitu di-stop, chord yang belum gilirannya emang belum pernah
  * dijadwalin ke audio engine sama sekali.
+ *
+ * Tiap chord slot juga dipecah jadi beberapa "hit" sesuai pola
+ * (sustain = 1 hit panjang, rhythm = beberapa hit staccato tiap ketukan),
+ * lihat patterns.js.
  */
 export async function playSequence(chords, bpm, preset = "piano", onStep, onDone) {
   const s = await ensureSynth(preset);
@@ -71,15 +83,28 @@ export async function playSequence(chords, bpm, preset = "piano", onStep, onDone
   let elapsedMs = 0;
 
   chords.forEach((chord, idx) => {
+    const chordStartMs = elapsedMs;
     const durMs = chord.durationBeats * secondsPerBeat * 1000;
+    const hits = getChordHits(chord.durationBeats, chord.pattern);
+    const freqs = chord.notes.map((n) => Tone.Frequency(n, "midi").toFrequency());
+
+    hits.forEach((hit) => {
+      const hitDelayMs = chordStartMs + hit.offsetBeats * secondsPerBeat * 1000;
+      const hitLenSec = hit.lengthBeats * secondsPerBeat * 0.9;
+      timers.push(
+        setTimeout(() => {
+          if (stopped) return;
+          s.triggerAttackRelease(freqs, hitLenSec);
+        }, hitDelayMs)
+      );
+    });
+
     timers.push(
       setTimeout(() => {
-        if (stopped) return;
-        const freqs = chord.notes.map((n) => Tone.Frequency(n, "midi").toFrequency());
-        s.triggerAttackRelease(freqs, (durMs / 1000) * 0.92);
-        onStep?.(idx);
-      }, elapsedMs)
+        if (!stopped) onStep?.(idx);
+      }, chordStartMs)
     );
+
     elapsedMs += durMs;
   });
 

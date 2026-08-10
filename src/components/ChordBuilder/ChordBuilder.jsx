@@ -8,6 +8,7 @@ import {
   chordToMidiNotes,
   makeId,
 } from "./chordUtils";
+import { PATTERNS } from "./patterns";
 import { downloadMidi } from "./midiWriter";
 import { previewChord, playSequence } from "./audioEngine";
 import "./chordBuilder.css";
@@ -16,6 +17,7 @@ const DEFAULT_DURATION = 4; // beats (1 birama di 4/4)
 
 export default function ChordBuilder() {
   const [quality, setQuality] = useState("major");
+  const [pattern, setPattern] = useState("sustain");
   const [octave, setOctave] = useState(4);
   const [bpm, setBpm] = useState(120);
   const [bpmInput, setBpmInput] = useState("120");
@@ -29,13 +31,13 @@ export default function ChordBuilder() {
   // Klik kunci -> chord baru selalu ditambahin ke PALING BAWAH list (bukan di atas).
   const addChord = useCallback(
     (root, q) => {
-      previewChord(chordToMidiNotes(root, q, octave), instrument);
+      previewChord(chordToMidiNotes(root, q, octave), instrument, pattern);
       setSequence((prev) => [
         ...prev,
-        { id: makeId(), root, quality: q, durationBeats: DEFAULT_DURATION },
+        { id: makeId(), root, quality: q, durationBeats: DEFAULT_DURATION, pattern },
       ]);
     },
-    [octave, instrument]
+    [octave, instrument, pattern]
   );
 
   const removeChord = (id) => {
@@ -105,13 +107,14 @@ export default function ChordBuilder() {
     const chords = sequence.map((c) => ({
       notes: chordToMidiNotes(c.root, c.quality, octave),
       durationBeats: c.durationBeats,
+      pattern: c.pattern,
     }));
     const stop = await playSequence(chords, bpm, instrument, setPlayingIndex, stopPlayback);
     stopPlaybackRef.current = stop;
   };
 
   const handlePreviewChip = (c) => {
-    previewChord(chordToMidiNotes(c.root, c.quality, octave), instrument);
+    previewChord(chordToMidiNotes(c.root, c.quality, octave), instrument, c.pattern);
   };
 
   // Matiin suara & timer kalau pindah tab / komponen unmount
@@ -122,6 +125,7 @@ export default function ChordBuilder() {
     const chords = sequence.map((c) => ({
       notes: chordToMidiNotes(c.root, c.quality, octave),
       durationBeats: c.durationBeats,
+      pattern: c.pattern,
     }));
     const filename = songName.trim()
       ? `${songName.trim().replace(/\s+/g, "-").toLowerCase()}.mid`
@@ -168,6 +172,19 @@ export default function ChordBuilder() {
                   onClick={() => setQuality(key)}
                 >
                   {q.label}
+                </button>
+              ))}
+            </div>
+            <div className="cb-quality-toggle" role="group" aria-label="Pola chord">
+              {Object.entries(PATTERNS).map(([key, p]) => (
+                <button
+                  key={key}
+                  type="button"
+                  className={`cb-quality-btn cb-pattern-btn ${pattern === key ? "is-active" : ""}`}
+                  onClick={() => setPattern(key)}
+                  title={p.description}
+                >
+                  {p.label}
                 </button>
               ))}
             </div>
@@ -238,6 +255,9 @@ export default function ChordBuilder() {
                 <Volume2 size={13} />
               </button>
               <span className="cb-chip-label">{chordLabel(c.root, c.quality)}</span>
+              <span className="cb-chip-pattern" title={PATTERNS[c.pattern]?.description}>
+                {PATTERNS[c.pattern]?.short ?? "S"}
+              </span>
               <div className="cb-chip-duration">
                 <button type="button" onClick={() => changeDuration(c.id, -1)} aria-label="Kurangi durasi">
                   <Minus size={12} />
