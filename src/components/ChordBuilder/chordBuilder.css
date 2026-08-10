@@ -144,22 +144,91 @@
 }
 
 .cb-pattern-select {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
   appearance: none;
   -webkit-appearance: none;
-  background: var(--cb-surface-2) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6' fill='none'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%239b9ba3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 12px center;
+  background: var(--cb-surface-2);
   border: 1px solid var(--cb-border-dark);
   border-radius: 15px;
   color: var(--cb-text);
   font-family: "Poppins", sans-serif;
   font-size: 12px;
   font-weight: 500;
-  padding: 9px 30px 9px 16px;
+  padding: 9px 14px;
   cursor: pointer;
 }
 
 .cb-pattern-select:focus-visible {
   outline: 2px solid var(--cb-accent);
   outline-offset: 1px;
+}
+
+.cb-pattern-caret {
+  transition: transform 0.15s ease;
+  color: var(--cb-text-dim);
+}
+
+.cb-pattern-caret.is-open {
+  transform: rotate(180deg);
+}
+
+/* ---------- Dropdown pola (custom, bukan native <select>) ---------- */
+.cb-pattern-dropdown {
+  position: relative;
+}
+
+.cb-pattern-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 220px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-border-dark);
+  border-radius: 14px;
+  padding: 6px;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.45);
+}
+
+.cb-pattern-option {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  border: none;
+  border-radius: 9px;
+  padding: 8px 10px;
+  cursor: pointer;
+  color: var(--cb-text);
+}
+
+.cb-pattern-option:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.cb-pattern-option.is-active {
+  background: rgba(0, 145, 255, 0.16);
+}
+
+.cb-pattern-option-label {
+  font-family: "Poppins", sans-serif;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.cb-pattern-option-desc {
+  font-family: "Poppins", sans-serif;
+  font-size: 11px;
+  color: var(--cb-text-dim);
+  line-height: 1.4;
 }
 
 /* ---------- Piano keys ---------- */

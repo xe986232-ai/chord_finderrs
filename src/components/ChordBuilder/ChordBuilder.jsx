@@ -18,6 +18,8 @@ const DEFAULT_DURATION = 4; // beats (1 birama di 4/4)
 export default function ChordBuilder() {
   const [quality, setQuality] = useState("major");
   const [pattern, setPattern] = useState("sustain");
+  const [patternMenuOpen, setPatternMenuOpen] = useState(false);
+  const patternMenuRef = useRef(null);
   const [octave, setOctave] = useState(4);
   const [bpm, setBpm] = useState(120);
   const [bpmInput, setBpmInput] = useState("120");
@@ -120,6 +122,18 @@ export default function ChordBuilder() {
   // Matiin suara & timer kalau pindah tab / komponen unmount
   useEffect(() => stopPlayback, [stopPlayback]);
 
+  // Tutup dropdown pola kalau klik di luar dropdown-nya.
+  useEffect(() => {
+    if (!patternMenuOpen) return;
+    const handleClickOutside = (e) => {
+      if (patternMenuRef.current && !patternMenuRef.current.contains(e.target)) {
+        setPatternMenuOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, [patternMenuOpen]);
+
   const handleDownload = () => {
     if (sequence.length === 0) return;
     const chords = sequence.map((c) => ({
@@ -176,19 +190,39 @@ export default function ChordBuilder() {
                   </button>
                 ))}
               </div>
-              <select
-                className="cb-pattern-select"
-                value={pattern}
-                onChange={(e) => setPattern(e.target.value)}
-                aria-label="Pola susunan chord"
-                title={PATTERNS[pattern]?.description}
-              >
-                {Object.entries(PATTERNS).map(([key, p]) => (
-                  <option key={key} value={key}>
-                    {p.label}
-                  </option>
-                ))}
-              </select>
+              <div className="cb-pattern-dropdown" ref={patternMenuRef}>
+                <button
+                  type="button"
+                  className="cb-pattern-select"
+                  onClick={() => setPatternMenuOpen((v) => !v)}
+                  aria-haspopup="listbox"
+                  aria-expanded={patternMenuOpen}
+                  title={PATTERNS[pattern]?.description}
+                >
+                  <span>{PATTERNS[pattern]?.label}</span>
+                  <ChevronDown size={14} className={`cb-pattern-caret ${patternMenuOpen ? "is-open" : ""}`} />
+                </button>
+                {patternMenuOpen && (
+                  <div className="cb-pattern-menu" role="listbox">
+                    {Object.entries(PATTERNS).map(([key, p]) => (
+                      <button
+                        key={key}
+                        type="button"
+                        role="option"
+                        aria-selected={pattern === key}
+                        className={`cb-pattern-option ${pattern === key ? "is-active" : ""}`}
+                        onClick={() => {
+                          setPattern(key);
+                          setPatternMenuOpen(false);
+                        }}
+                      >
+                        <span className="cb-pattern-option-label">{p.label}</span>
+                        <span className="cb-pattern-option-desc">{p.description}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
