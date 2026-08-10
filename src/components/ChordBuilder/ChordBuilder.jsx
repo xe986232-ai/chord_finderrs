@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { X, Minus, Plus, Download, Trash2, Music, Play, Square, Volume2, ChevronUp, ChevronDown } from "lucide-react";
+import { X, Minus, Plus, Download, Trash2, Music, Play, Square, Volume2, ChevronUp, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   NATURAL_NOTES,
   SHARP_NOTES,
@@ -31,6 +31,15 @@ export default function ChordBuilder() {
   const [diagramView, setDiagramView] = useState("guitar"); // "guitar" | "piano"
   const [playingIndex, setPlayingIndex] = useState(null);
   const stopPlaybackRef = useRef(null);
+
+  // Index chord yang lagi ditampilin di carousel diagram (bukan diagramView).
+  // Beda dari playingIndex: activeDiagramIndex juga jalan sendiri (auto
+  // bergantian) pas nggak ada playback, sedangkan playingIndex cuma keisi
+  // pas tombol Play beneran ditekan.
+  const [activeDiagramIndex, setActiveDiagramIndex] = useState(0);
+  // Naik tiap kali user navigasi manual (panah/dot) -- dipakai buat "reset"
+  // timer auto-advance biar nggak langsung ke-skip abis user baru aja klik.
+  const [manualNavTick, setManualNavTick] = useState(0);
 
   // Klik kunci -> chord baru selalu ditambahin ke PALING BAWAH list (bukan di atas).
   const addChord = useCallback(
@@ -123,6 +132,36 @@ export default function ChordBuilder() {
 
   // Matiin suara & timer kalau pindah tab / komponen unmount
   useEffect(() => stopPlayback, [stopPlayback]);
+
+  // Jaga activeDiagramIndex tetap valid kalau chord dihapus/direset.
+  useEffect(() => {
+    setActiveDiagramIndex((i) => Math.min(i, Math.max(0, sequence.length - 1)));
+  }, [sequence.length]);
+
+  // Pas sequence lagi diputar (Play), carousel diagram IKUT chord yang
+  // lagi bunyi -- slide ke kiri otomatis ngikutin progresi playback.
+  useEffect(() => {
+    if (playingIndex !== null) setActiveDiagramIndex(playingIndex);
+  }, [playingIndex]);
+
+  // Pas idle (nggak lagi playback), diagram tetap bergantian sendiri tiap
+  // beberapa detik -- ini yang bikin view chord-nya "muncul gantian" biar
+  // nggak diam kalau progresinya banyak & nggak keliatan semua sekaligus.
+  useEffect(() => {
+    if (playingIndex !== null || sequence.length < 2) return;
+    const id = setInterval(() => {
+      setActiveDiagramIndex((i) => (i + 1) % sequence.length);
+    }, 2400);
+    return () => clearInterval(id);
+  }, [playingIndex, sequence.length, manualNavTick]);
+
+  const goToDiagram = (idx) => {
+    setActiveDiagramIndex(idx);
+    setManualNavTick((t) => t + 1);
+  };
+  const prevDiagram = () =>
+    goToDiagram((activeDiagramIndex - 1 + sequence.length) % sequence.length);
+  const nextDiagram = () => goToDiagram((activeDiagramIndex + 1) % sequence.length);
 
   // Tutup dropdown pola kalau klik di luar dropdown-nya.
   useEffect(() => {
@@ -344,15 +383,65 @@ export default function ChordBuilder() {
         {sequence.length === 0 ? (
           <div className="cb-empty">Diagram bakal nongol di sini abis kamu nambah chord.</div>
         ) : (
-          <div className="cb-diagram-strip">
-            {sequence.map((c, idx) => (
-              <div key={c.id} className={`cb-diagram-card ${playingIndex === idx ? "is-playing" : ""}`}>
-                <span className="cb-diagram-card-order">{idx + 1}</span>
-                <ChordDiagram root={c.root} quality={c.quality} view={diagramView} />
-                <span className="cb-diagram-card-label">{chordLabel(c.root, c.quality)}</span>
+          <>
+            <div className="cb-diagram-carousel">
+              <button
+                type="button"
+                className="cb-diagram-nav"
+                onClick={prevDiagram}
+                disabled={sequence.length < 2}
+                aria-label="Chord sebelumnya"
+              >
+                <ChevronLeft size={16} />
+              </button>
+
+              <div className="cb-diagram-viewport">
+                <div
+                  className="cb-diagram-track"
+                  style={{ transform: `translateX(-${activeDiagramIndex * 100}%)` }}
+                >
+                  {sequence.map((c, idx) => (
+                    <div
+                      key={c.id}
+                      className={`cb-diagram-slide ${playingIndex === idx ? "is-playing" : ""}`}
+                    >
+                      <span className="cb-diagram-slide-index">
+                        {idx + 1} / {sequence.length}
+                      </span>
+                      <ChordDiagram root={c.root} quality={c.quality} view={diagramView} />
+                      <span className="cb-diagram-card-label">{chordLabel(c.root, c.quality)}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+
+              <button
+                type="button"
+                className="cb-diagram-nav"
+                onClick={nextDiagram}
+                disabled={sequence.length < 2}
+                aria-label="Chord berikutnya"
+              >
+                <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {sequence.length > 1 && (
+              <div className="cb-diagram-dots" role="tablist" aria-label="Pilih chord">
+                {sequence.map((c, idx) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={activeDiagramIndex === idx}
+                    aria-label={`Lihat diagram chord ${chordLabel(c.root, c.quality)}`}
+                    className={`cb-diagram-dot-btn ${activeDiagramIndex === idx ? "is-active" : ""}`}
+                    onClick={() => goToDiagram(idx)}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </section>
 

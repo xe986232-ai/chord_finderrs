@@ -455,52 +455,118 @@
 }
 
 /* ---------- Diagram chord (gitar / piano) ---------- */
-.cb-diagram-strip {
+/* Carousel: satu chord ditampilin per waktu, gantian sendiri (idle) atau
+   ngikutin playback -- geser pakai transform translateX di .cb-diagram-track,
+   jadi transisinya SELALU ke arah yang sama (slide ke kiri) pas index naik. */
+.cb-diagram-carousel {
   display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding: 4px 2px 8px;
-  -webkit-overflow-scrolling: touch;
+  align-items: center;
+  gap: 8px;
 }
 
-.cb-diagram-card {
+.cb-diagram-viewport {
+  flex: 1 1 auto;
+  overflow: hidden;
+  border-radius: 16px;
+  background: var(--cb-surface-2);
+  border: 1px solid var(--cb-border-dark);
+}
+
+.cb-diagram-track {
+  display: flex;
+  transition: transform 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  will-change: transform;
+}
+
+.cb-diagram-slide {
   position: relative;
-  flex: 0 0 auto;
+  flex: 0 0 100%;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  background: var(--cb-surface-2);
-  border: 1px solid var(--cb-border-dark);
-  border-radius: 14px;
-  padding: 10px 12px 8px;
-  transition: box-shadow 0.15s ease;
-}
-
-.cb-diagram-card.is-playing {
-  box-shadow: 0 0 0 1.5px var(--cb-accent);
-}
-
-.cb-diagram-card-order {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  display: flex;
-  align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  color: var(--cb-text-dim);
-  font-size: 9px;
+  gap: 8px;
+  padding: 24px 16px 18px;
+}
+
+.cb-diagram-slide.is-playing {
+  box-shadow: inset 0 0 0 1.5px var(--cb-accent);
+  border-radius: 16px;
+}
+
+.cb-diagram-slide-index {
+  position: absolute;
+  top: 10px;
+  left: 12px;
+  font-family: "Poppins", sans-serif;
+  font-size: 10px;
   font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--cb-text-dim);
+  background: rgba(255, 255, 255, 0.06);
+  padding: 3px 9px;
+  border-radius: 999px;
 }
 
 .cb-diagram-card-label {
   font-family: "Lato", "Helvetica Neue", Arial, Helvetica, sans-serif;
   font-weight: 700;
-  font-size: 14px;
+  font-size: 15px;
+}
+
+.cb-diagram-slide.is-playing .cb-diagram-card-label {
+  color: var(--cb-accent);
+}
+
+.cb-diagram-nav {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 1px solid var(--cb-border-dark);
+  background: var(--cb-surface-2);
+  color: var(--cb-text);
+  cursor: pointer;
+  transition: border-color 0.15s ease, color 0.15s ease, background 0.15s ease;
+}
+
+.cb-diagram-nav:hover:not(:disabled) {
+  border-color: var(--cb-accent);
+  color: var(--cb-accent);
+}
+
+.cb-diagram-nav:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
+
+.cb-diagram-dots {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.cb-diagram-dot-btn {
+  width: 6px;
+  height: 6px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.18);
+  cursor: pointer;
+  transition: background 0.2s ease, width 0.2s ease;
+}
+
+.cb-diagram-dot-btn.is-active {
+  width: 18px;
+  border-radius: 3px;
+  background: var(--cb-accent);
 }
 
 /* -- Gitar (SVG fretboard) -- */
